@@ -151,7 +151,7 @@ def form_nations(w, rng: RNG) -> None:
             for _ in range(len(q)):
                 rid = q.popleft()
                 took = False
-                for nb in rng.shuffled(list(adj[rid])):
+                for nb in rng.shuffled(sorted(adj[rid])):
                     if nb not in nation_of:
                         nation_of[nb] = nid
                         q.append(nb)
@@ -167,7 +167,7 @@ def form_nations(w, rng: RNG) -> None:
     for r in regions:
         if r.id in nation_of:
             continue
-        neigh = [nation_of[n] for n in adj[r.id] if n in nation_of]
+        neigh = [nation_of[n] for n in sorted(adj[r.id]) if n in nation_of]
         if neigh and rng.chance(0.72):
             nation_of[r.id] = rng.pick(neigh)
         else:
