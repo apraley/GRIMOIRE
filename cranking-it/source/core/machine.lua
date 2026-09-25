@@ -224,6 +224,7 @@ function PlayScene:enter(params)
     if not ok then print("resume failed: " .. tostring(err)) end
   end
   Crank.scale = 1
+  Save.hold = true
   clearMenu()
   local menu = playdate.getSystemMenu()
   menuItems[#menuItems + 1] = menu:addMenuItem("how to play", function() self.help = true end)
@@ -241,6 +242,7 @@ function PlayScene:enter(params)
 end
 
 function PlayScene:exit()
+  Save.hold = false
   clearMenu()
   if self.machine then self.machine:exit() end
   Audio.stopAllHums()

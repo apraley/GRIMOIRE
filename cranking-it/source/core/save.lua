@@ -123,10 +123,13 @@ function Save.flush()
 end
 
 -- Debounced autosave: call every frame; writes at most every few seconds.
+-- Save.hold is set while a machine runs so a JSON write never hitches
+-- gameplay; progress is flushed on results, pause, sleep and quit instead.
+Save.hold = false
 local sinceWrite = 0
 function Save.update(dt)
   sinceWrite = sinceWrite + dt
-  if Save.dirty and sinceWrite > 3 then
+  if Save.dirty and not Save.hold and sinceWrite > 3 then
     sinceWrite = 0
     Save.flush()
   end

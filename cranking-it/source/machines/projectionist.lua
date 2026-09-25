@@ -88,7 +88,7 @@ local Proj = Machine.define({
   number = 7,
   title = "PROJECTIONIST",
   tagline = "Two turns a second. Always.",
-  description = "Hand-crank the picture house projector: keep the frame rate the film asks for, never jerk the loop, and change reels on the cues.",
+  description = "Hand-crank the picture house projector at the speed the film asks. Never jerk the loop. Change reels on the cues.",
   howto = "Crank steadily: 2 turns/s = 16 fps. Match the speed dial's band. Jerks shrink the loop and jam the film: stop, B opens the gate, press the arrows, A closes. Cue dots: B strikes the other arc, A changes over.",
   controls = { { "CRANK", "drive the film" }, { "B", "strike arc / open gate" }, { "A", "change over / close gate" }, { "DPAD", "re-thread" } },
   modes = { "tutorial", "standard", "endless" },

@@ -217,8 +217,36 @@ local function drawCabinet(self, s, sx)
   gfx.setLineWidth(2)
   gfx.drawRect(x, y + 18, w, h - 18)
   gfx.setLineWidth(1)
-  -- marquee
-  gfx.fillRect(x - 4, y, w + 8, 20)
+  -- marquee: each cabinet has its own silhouette
+  local style = def.number % 4
+  gfx.setColor(gfx.kColorBlack)
+  if style == 1 then
+    -- arched pediment
+    gfx.fillRect(x - 4, y, w + 8, 20)
+    gfx.fillEllipseInRect(x + 4, y - 14, w - 8, 30)
+  elseif style == 2 then
+    -- gabled roof with a finial gear
+    gfx.fillRect(x - 4, y, w + 8, 20)
+    gfx.fillTriangle(x - 6, y + 2, x + w + 6, y + 2, sx, y - 18)
+    Art.gear(sx, y - 20, 5, 6, self.t * 40 + def.number * 20, true)
+  elseif style == 3 then
+    -- porthole crest and a brass horn
+    gfx.fillRect(x - 4, y, w + 8, 20)
+    gfx.fillCircleAtPoint(sx, y - 4, 13)
+    gfx.setColor(gfx.kColorWhite)
+    gfx.drawCircleAtPoint(sx, y - 4, 9)
+    gfx.setColor(gfx.kColorBlack)
+    gfx.fillTriangle(x + w - 2, y + 2, x + w + 12, y - 10, x + w + 12, y + 10)
+  else
+    -- flat marquee with bulbs
+    gfx.fillRect(x - 4, y - 4, w + 8, 24)
+    gfx.setColor(gfx.kColorWhite)
+    local lit = floor(self.t * 4) % 2
+    for i = 0, 6 do
+      if (i + lit) % 2 == 0 then gfx.fillCircleAtPoint(x + 2 + i * 10.6, y - 1, 1.5) end
+    end
+    gfx.setColor(gfx.kColorBlack)
+  end
   UI.textW(U.roman(def.number), sx, y + 1, "center", UI.bold)
   -- screen / icon
   gfx.drawRect(x + 8, y + 26, w - 16, 56)
