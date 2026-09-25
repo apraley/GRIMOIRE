@@ -241,6 +241,7 @@ function NPCGen.genPopulation(W, r)
     local b = a.crush and W.npcs[a.crush]
     if b and not a.partner and not b.partner and r:chance(0.45) and NPCGen.romanceOK(a, b) then
       a.partner = b.id; b.partner = a.id; b.crush = a.id
+      a.since = -r:i(5, 700); b.since = a.since
       setRel(b, a, 20, r:i(40, 80)); setRel(a, b, 20, 10)
     end
   end

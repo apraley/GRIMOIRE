@@ -67,14 +67,12 @@ function Events.daily(day)
     W.mall.appeal = U.clamp((W.mall.appeal or 1) - 0.012, 0.6, 1.2)
   end
   -- Teen Night on alternate Fridays: a local band plays the food court stage
-  if info.wd == 5 and (day // 7) % 2 == 0 then
+  if info.wd == 5 and (day // 7) % 2 == 0 and not Management.has("teenNightPaused") then
     Events.teenNight(day, r)
   end
   -- arcade tournament: first Saturday of the month
-  if info.wd == 6 and info.d <= 7 then
-    W.mall.tourney = day
-    Timeline.add("arcade", "Arcade tournament today: " .. r:pick(Content.ARCADE_GAMES).name .. ". Winner gets 500 tokens.", 1)
-  end
+  if info.wd == 6 and info.d <= 7 then ArcadeSim.startTourney(day, r) end
+  if info.d == 15 then ArcadeSim.rotate(day, r) end
   -- scheduled events
   for _, e in ipairs(W.events) do
     if not e.done and e.day <= day then

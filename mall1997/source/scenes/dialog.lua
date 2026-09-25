@@ -107,6 +107,9 @@ function Dialog.run(n, id)
     end, { cancel = function() Dialog.menu(n) end, w = 390, x = 5 })
   elseif id == "job" then
     Dialog.interview(n, n.job)
+  elseif id == "challenge" then
+    Dialog.close()
+    Play.challenge(n)
   elseif id == "secjob" then
     Dialog.interview(n, "sec")
   elseif id == "hours" then

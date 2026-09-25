@@ -407,6 +407,7 @@ function Explore.minute()
       p.companion = nil
     else
       c.p.f = U.clamp(c.p.f + 0.15, -100, 100)
+      c.p.last = day
       if c.p.a > 10 and NPCGen.romanceOK(c, { id = -1, age = p.age }) then c.p.a = U.clamp(c.p.a + 0.1, 0, 100) end
     end
   end

@@ -134,6 +134,9 @@ function Talk.options(n)
   end
   if n.job == "sec" and n.title == "chief" and not W.p.job then opts[#opts + 1] = { id = "secjob", label = "Ask about security work" } end
   if n.wantsBorrow then opts[#opts + 1] = { id = "lend", label = "Lend " .. n.wantsBorrow } end
+  if (n.rival or (n.ask and n.age < 25)) and n.act ~= "work" and n.loc == "s" .. W.mall.arcade then
+    opts[#opts + 1] = { id = "challenge", label = "Challenge (10 tokens)" }
+  end
   opts[#opts + 1] = { id = "insult", label = "Insult" }
   opts[#opts + 1] = { id = "bye", label = "Bye" }
   return opts
@@ -389,7 +392,8 @@ function Talk.give(n, it)
       p.t = p.t - 8
     end
   end
-  Memory.add(n, "gift", n.first .. " — " .. pl.name .. " gave me " .. it.n, -1)
+  p.giftDay = Clock.day(W.t)
+  Memory.add(n, "gift", pl.name .. " gave me " .. it.n, -1)
   Social.clampP(n)
   return out
 end
@@ -481,6 +485,10 @@ function Talk.ambient(n)
       if rm.kind == "dating" then return "Ooooh, lovebirds." end
       if rm.kind == "gig" then return "Your band rules!" end
     end
+  end
+  if n.rival then
+    local g = ArcadeGames.list[type(n.rival) == "string" and n.rival or "serpent"]
+    return pick(rng, { "Nice score. For a baby.", "Still my record, " .. W.p.name .. ".", (g and g.name or "It") .. " is MINE." })
   end
   if n.job == "sec" then return "Keep it moving." end
   return pick(rng, { "Hey.", "Oh, hi.", "*nod*" })

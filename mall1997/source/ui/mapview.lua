@@ -227,14 +227,22 @@ function MapView.render(a)
   return img
 end
 
+-- small LRU of rendered area images so hopping between the two concourse
+-- floors (or a store and its floor) doesn't re-render every time
+local rendered = {}   -- list of { id, version, img, area }
 function MapView.prepare(areaId)
-  if MapView.areaId ~= areaId or MapView.version ~= Areas.version or not MapView.img then
-    local a = Areas.build(areaId)
-    MapView.img = MapView.render(a)
-    MapView.areaId = areaId
-    MapView.version = Areas.version
-    MapView.area = a
+  if MapView.areaId == areaId and MapView.version == Areas.version and MapView.img then return MapView.area end
+  local hit
+  for i, e in ipairs(rendered) do
+    if e.id == areaId and e.version == Areas.version then hit = table.remove(rendered, i) break end
   end
+  if not hit then
+    local a = Areas.build(areaId)
+    hit = { id = areaId, version = Areas.version, img = MapView.render(a), area = a }
+  end
+  table.insert(rendered, 1, hit)
+  while #rendered > 3 do table.remove(rendered) end
+  MapView.img, MapView.areaId, MapView.version, MapView.area = hit.img, hit.id, hit.version, hit.area
   return MapView.area
 end
 

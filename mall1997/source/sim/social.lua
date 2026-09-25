@@ -54,6 +54,7 @@ function Social.onRumor(n, r)
   elseif r.kind == "breakup" and r.about and n.crush == r.about then
     n.mood = U.clamp(n.mood + 5, 0, 100) -- secretly thrilled
   end
+  Romance.onRumor(n, r)
 end
 
 function Social.clampP(n)
@@ -76,6 +77,7 @@ end
 
 local function startDating(a, b)
   a.partner, b.partner = b.id, a.id
+  a.since, b.since = Clock.day(W.t), Clock.day(W.t)
   a.crush, b.crush = b.id, a.id
   rel(a, b).a = math.max(rel(a, b).a, 60); rel(b, a).a = math.max(rel(b, a).a, 60)
   a.mood = U.clamp(a.mood + 15, 0, 100); b.mood = U.clamp(b.mood + 15, 0, 100)
@@ -151,6 +153,7 @@ end
 
 function Social.fight(a, b, r)
   local where = Areas.name(a.loc)
+  Management.noteFight()
   Timeline.add("people", NPCGen.name(a) .. " and " .. NPCGen.name(b) .. " got into a shoving match at the " .. where .. ".", 2)
   Rumors.add("fight", a.id, a.first .. " and " .. b.first .. " had a fight at the " .. where, 6, { a.id, b.id })
   -- security response if a guard is around

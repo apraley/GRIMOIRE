@@ -141,6 +141,7 @@ function Stores.weight(s, day)
   if s.type == "food" then w = w * 1.8 end
   if s.type == "cinema" then w = w * 2.5 end
   if s.stock < 25 then w = w * 0.7 end
+  if Management then w = w * Management.neighborEffect(s) end
   return w
 end
 
@@ -358,6 +359,7 @@ function Stores.neighbors(day, r)
           local v = s.nrel[nid] or 0
           local d = r:range(-6, 6)
           if s.type == o.type then d = d - 4 end
+          d = d + Management.drift(s, o, r)
           if s.type == "arcade" or o.type == "arcade" or s.type == "music" or o.type == "music" then d = d - 2 end
           if (s.theftWeek or 0) + (o.theftWeek or 0) > 1 then d = d - 3 end
           local ma, mb = s.mgr and W.npcs[s.mgr], o.mgr and W.npcs[o.mgr]
@@ -366,6 +368,7 @@ function Stores.neighbors(day, r)
           s.nrel[nid] = v; o.nrel[s.id] = v
           if v < -45 and not s.feud and r:chance(0.4) then
             s.feud, o.feud = nid, s.id
+            s.feudWeeks, o.feudWeeks = 0, 0
             W.stats.feuds = W.stats.feuds + 1
             local why = r:pick({ "the shared trash corridor", "blasting music", "a blocked fire door",
               "who gets the holiday window display", "a customer who went next door", "a parking space" })

@@ -42,7 +42,7 @@ function Security.npcConsiderTheft(n, s)
     n.rep = U.clamp(n.rep - 15, 0, 100)
     n.mood = U.clamp(n.mood - 20, 0, 100)
     n.tr.klepto = n.tr.klepto * 0.7
-    Timeline.add("crime", "Security caught " .. NPCGen.name(n) .. " shoplifting a " .. it.n .. " at " .. s.name .. ".", 2)
+    Timeline.add("crime", "Security caught " .. NPCGen.name(n) .. " shoplifting " .. U.a(it.n) .. " at " .. s.name .. ".", 2)
     local seeds = { n.id }
     for _, e in ipairs(Stores.presentStaff(s)) do seeds[#seeds + 1] = e.id end
     Rumors.add("caught", n.id, n.first .. " " .. n.last .. " got caught stealing at " .. s.name, 7, seeds, { store = s.id })
@@ -240,7 +240,7 @@ function Security.getaway(s)
   if #seeds > 0 then
     Rumors.add("shoplift", -1, p.name .. " pocketed something at " .. s.name, 6, seeds, { store = s.id })
   end
-  Timeline.add("player", "You walked out of " .. s.name .. " with something you didn't pay for.", 1)
+  Timeline.add("player", p.name .. " walked out of " .. s.name .. " with something they didn't pay for.", 1)
   p.hot = {}
   p.heat = nil
 end

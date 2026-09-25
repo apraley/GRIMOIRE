@@ -31,16 +31,20 @@ function WorldSim.newDay(day)
     Trends.weekly(day)
     Security.weekly(day)
     Social.weekly()
+    Management.weekly(day)
   end
   if info.wd == 5 then CinemaSim.weekly(day) end
   Stores.staffing(day)
   Rumors.daily()
   Social.daily(day)
+  Romance.daily(day)
   ArcadeSim.daily()
   Events.daily(day)
   Jobs.daily(day)
   PlayerSim.daily(day)
   NPCAI.newDay(day)
+  Romance.coincidences(day)
+  ArcadeSim.tourneyPlans(day)
   W.lastDay = day
 end
 
@@ -58,6 +62,7 @@ function WorldSim.tick(dt)
     W.lastSocial = W.t
     Social.update()
   end
+  ArcadeSim.update()
   if W.p.atMall then PlayerSim.tick(dt) end
   if WorldSim.onTick then WorldSim.onTick() end
 end

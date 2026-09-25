@@ -11,7 +11,7 @@ local SPEED = { walker = 55, security = 70, default = 85 }
 
 local ACT_SPOT = { work = "work", shop = "shop", eat = "eat", hang = "hang", play = "play",
   patrol = "hang", monitor = "work", fix = "work", ["break"] = "break", stage = "stage",
-  chief = "chief", wait = "wait", date = "hang", lap = "lap", inspect = "hang", santa = "hang" }
+  chief = "chief", wait = "wait", date = "hang", lap = "lap", inspect = "hang", santa = "hang", tourney = "play" }
 
 local function active(n) return n.status == "active" end
 
@@ -60,7 +60,9 @@ local function spotArea(n, r, what)
     if s.open then return "s" .. s.id, "play", s.id end
     return "fc", "hang"
   elseif what == "fc" then return "fc", r:chance(0.5) and "eat" or "hang"
-  elseif what == "fountain" then return "c1", "hang"
+  elseif what == "fountain" then
+    if Management.has("loitering") and r:chance(0.6) then return "fc", "eat" end
+    return "c1", "hang"
   elseif what == "c2" then return "c2", "hang"
   elseif what == "lot" then return "lot", "hang"
   elseif what == "cinema" then return "s" .. W.mall.cinema, "hang"
@@ -194,10 +196,12 @@ function NPCAI.planDay(n, day)
     local go = info.school and 0.45 or 0.72
     if info.wd == 0 then go = go * 0.7 end
     if n.clique == "mall rats" then go = go + 0.2 end
+    if n.clique == "skaters" and Management.has("noSkate") then go = go * 0.7 end
     if n.grounded and n.grounded > day then go = 0 end
     if r:chance(go) then
       local from = info.school and (15 * 60 + r:i(0, 120)) or (open + r:i(60, 240))
       local curfew = (info.school and 21 * 60 or 22 * 60) - r:i(0, 90)
+      if Management.has("teenEscort") and n.age < 16 and (info.wd == 5 or info.wd == 6) then curfew = math.min(curfew, 18 * 60) end
       local to = math.min(close, curfew)
       if n.age >= 18 then to = close end
       teenPlan(n, day, info, plan, r, from, to)
@@ -225,7 +229,12 @@ function NPCAI.planDay(n, day)
     local d = n.dateToday
     local keep = {}
     for _, b in ipairs(plan) do if b.e <= d.s or b.s >= d.e then keep[#keep + 1] = b end end
-    block(keep, d.s, d.e, d.a, "date", d.with)
+    if d.show and d.a:match("^scr") then
+      block(keep, d.s, d.s + 15, "s" .. W.mall.cinema, "date", d.with)
+      block(keep, d.s + 15, d.e, d.a, "watch", d.show)
+    else
+      block(keep, d.s, d.e, d.a, "date", d.with)
+    end
     n.plan = keep
   end
   -- band practice / gigs

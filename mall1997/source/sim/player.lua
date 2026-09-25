@@ -124,6 +124,7 @@ function PlayerSim.daily(day)
       end
     end
   end
+  Romance.playerDaily(day)
   p.rep = Social.playerRep()
   p.cliqueRep = Social.cliqueRep()
   if p.fame > 0 then p.fame = p.fame - 0.2 end

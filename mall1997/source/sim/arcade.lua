@@ -38,6 +38,7 @@ function ArcadeSim.submit(game, who, score)
       if prevTop.who == -1 then
         Pager.send(e.i, "UR " .. gname .. " RECORD IS MINE NOW")
         Memory.add(n, "beat", "beat " .. W.p.name .. "'s record", -1)
+        n.rival = game
       end
     end
   end
@@ -128,4 +129,125 @@ function ArcadeSim.champion()
     if not b[1] or b[1].who ~= -1 then all = false end
   end
   return all
+end
+
+-- ------------------------------------------------------------------ tournaments
+-- First Saturday of each month, 2-5 PM. Serious kids show up; everyone's
+-- best run on the tournament cabinet counts; the winner gets 500 tokens and
+-- a month of bragging rights.
+local FLAVOR_POOL = { "TIME CRISIS-ISH", "BIG BASS FISHING", "SUPER SPRINT 2", "MORTAL FIGHTER III", "ALIEN AIR HOCKEY",
+  "WHACK-A-GATOR", "BOWLING ALLEY 2000", "POP-A-SHOT", "X-FILES PINBALL", "RIDGE RACER-ISH DX" }
+
+function ArcadeSim.startTourney(day, r)
+  local g = r:pick(Content.ARCADE_GAMES)
+  W.mall.tourney = { day = day, game = g.key, s = 14 * 60, e = 17 * 60, scores = {}, done = false }
+  Timeline.add("arcade", "Arcade tournament today, 2-5 PM: " .. g.name .. ". Winner gets 500 tokens.", 2)
+  Rumors.add("tourney", nil, "there's a " .. g.name .. " tournament at the arcade on Saturday", 5, ArcadeSim.witnesses())
+end
+
+function ArcadeSim.tourneyOn()
+  local tn = W.mall.tourney
+  if not tn or tn.done or tn.day ~= Clock.day(W.t) then return nil end
+  local m = Clock.minute(W.t)
+  if m >= tn.s and m < tn.e then return tn end
+end
+
+function ArcadeSim.tourneyEntry(who, score)
+  local tn = ArcadeSim.tourneyOn()
+  if not tn then return end
+  local k = tostring(who)
+  if not tn.scores[k] or tn.scores[k] < score then tn.scores[k] = score end
+end
+
+-- competitors plan to be there
+function ArcadeSim.tourneyPlans(day)
+  local tn = W.mall.tourney
+  if not tn or tn.day ~= day then return end
+  local r = U.rng(W.seed, "tplan", day)
+  for _, n in ipairs(W.npcs) do
+    if n.status == "active" and n.age < 26 and not Stores.shiftOf(n, day) then
+      local sk = ArcadeSim.skill(n, tn.game)
+      local keen = false
+      for _, w in ipairs(n.wants) do if w.k == "arcade" then keen = true end end
+      if (keen or sk > 0.5) and r:chance(0.7) then
+        local s = tn.s + r:i(0, 90)
+        local keep = {}
+        for _, b in ipairs(n.plan or {}) do if b.e <= s or b.s >= s + 60 then keep[#keep + 1] = b end end
+        keep[#keep + 1] = { s = s, e = s + 60, a = "s" .. W.mall.arcade, act = "tourney" }
+        table.sort(keep, function(x, y) return x.s < y.s end)
+        n.plan = keep; n.pi = 1
+      end
+    end
+  end
+end
+
+function ArcadeSim.npcTourney(n)
+  local tn = ArcadeSim.tourneyOn()
+  if not tn then return end
+  local def = ArcadeGames.list[tn.game]
+  local r = U.rng(W.seed, "tplay", n.id, tn.day)
+  local sk = ArcadeSim.skill(n, tn.game)
+  local best = 0
+  for _ = 1, 3 do best = math.max(best, def.npcScore(r, math.min(1, sk + 0.05))) end
+  ArcadeSim.tourneyEntry(n.id, best)
+  ArcadeSim.submit(tn.game, n.id, best)
+end
+
+-- called every tick: settle the tournament at 5 PM
+function ArcadeSim.update()
+  local tn = W.mall.tourney
+  if not tn or tn.done or Clock.day(W.t) < tn.day then return end
+  if Clock.day(W.t) == tn.day and Clock.minute(W.t) < tn.e then return end
+  tn.done = true
+  local bestK, bestS, entrants = nil, -1, 0
+  for _, k in ipairs(U.keys(tn.scores)) do
+    entrants = entrants + 1
+    if tn.scores[k] > bestS then bestK, bestS = k, tn.scores[k] end
+  end
+  local g = ArcadeGames.list[tn.game]
+  if not bestK then Timeline.add("arcade", "Nobody showed up for the arcade tournament.", 1) return end
+  local who = tonumber(bestK)
+  tn.winner = who
+  W.arcade.champs = W.arcade.champs or {}
+  W.arcade.champs[#W.arcade.champs + 1] = { day = tn.day, game = tn.game, who = who, score = bestS }
+  if who == -1 then
+    W.p.tokens = W.p.tokens + 500
+    W.p.fame = W.p.fame + 12
+    Timeline.add("arcade", W.p.name .. " won the " .. g.name .. " tournament (" .. bestS .. ") against " .. (entrants - 1) .. " other players.", 3)
+    Rumors.add("record", -1, W.p.name .. " won the arcade tournament", 8, ArcadeSim.witnesses())
+    Pager.send("ARCADE", "U WON!! 500 TOKENS AT THE COUNTER")
+  else
+    local n = W.npcs[who]
+    n.rep = U.clamp(n.rep + 10, 0, 100)
+    n.mood = U.clamp(n.mood + 20, 0, 100)
+    Timeline.add("arcade", NPCGen.name(n) .. " won the " .. g.name .. " tournament with " .. bestS .. " (" .. entrants .. " entrants).", 2)
+    Rumors.add("record", n.id, n.first .. " won the arcade tournament", 6, ArcadeSim.witnesses())
+    if tn.scores["-1"] then
+      Pager.send(ArcadeSim.initials(n), "GG. BETTER LUCK NEXT MONTH")
+      n.rival = true
+    end
+  end
+end
+
+-- monthly: the arcade swaps out its least-played novelty cabinet
+function ArcadeSim.rotate(day, r)
+  local worst, wp
+  for _, m in ipairs(W.arcade.machines) do
+    if m.flavor and (not wp or m.plays < wp) then worst, wp = m, m.plays end
+  end
+  if not worst then return end
+  local used = {}
+  for _, m in ipairs(W.arcade.machines) do if m.flavor then used[m.flavor] = true end end
+  local cands = {}
+  for _, f in ipairs(FLAVOR_POOL) do if not used[f] then cands[#cands + 1] = f end end
+  local new = r:pick(cands)
+  if not new then return end
+  Timeline.add("arcade", "The arcade hauled out " .. worst.flavor .. " and wheeled in a new cabinet: " .. new .. ".", 1)
+  worst.flavor = new; worst.plays = 0; worst.wear = 0; worst.broken = false
+end
+
+-- player vs NPC challenge: returns npc score
+function ArcadeSim.challengeScore(n, game)
+  local r = U.rng(W.seed, "chal", n.id, math.floor(W.t))
+  return ArcadeGames.list[game].npcScore(r, math.min(1, ArcadeSim.skill(n, game) + 0.1))
 end

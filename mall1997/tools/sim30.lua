@@ -244,3 +244,8 @@ local before = W
 assert(Save.read(), "save read failed")
 print(("save: %d KB, round trip %.2fs, npcs %d rel sample ok=%s"):format(size // 1024, os.clock() - t2, #W.npcs,
   tostring(W.npcs[5].rel ~= nil)))
+if os.getenv("TIMELINE_OUT") then
+  local f = io.open(os.getenv("TIMELINE_OUT"), "w")
+  for _, e in ipairs(W.timeline) do f:write(Clock.shortDate(Clock.day(e.t)) .. " " .. Clock.hhmm(Clock.minute(e.t)) .. " [" .. e.cat .. "] " .. e.txt .. "\n") end
+  f:close()
+end

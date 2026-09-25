@@ -143,6 +143,12 @@ function U.wrap(s, width)
   return lines
 end
 
+-- "a pretzel" / "an egg roll"
+function U.a(word)
+  if word:match("^[AEIOUaeiou]") then return "an " .. word end
+  return "a " .. word
+end
+
 function U.pad2(n) return string.format("%02d", n) end
 
 function U.plural(n, one, many) if n == 1 then return one end return many or (one .. "s") end

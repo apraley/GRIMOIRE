@@ -103,7 +103,9 @@ function Play.cabinet(o)
     return
   end
   local def = ArcadeGames.list[m.game]
-  Choose(def.name, { "Play (1 token)", "High scores" }, function(i)
+  local tn = ArcadeSim.tourneyOn()
+  local title = def.name .. ((tn and tn.game == m.game) and " - TOURNAMENT!" or "")
+  Choose(title, { "Play (1 token)", "High scores" }, function(i)
     if i == 2 then Play.scores(m.game) return end
     if p.tokens < 1 then Say("No tokens. The token machine is by the counter.") return end
     p.tokens = p.tokens - 1
@@ -114,6 +116,8 @@ function Play.cabinet(o)
       local score = def.score(st)
       WorldSim.advance(W.t + 4, 1)
       p.stats.arcade[m.game] = math.max(p.stats.arcade[m.game] or 0, score)
+      local tn = ArcadeSim.tourneyOn()
+      if tn and tn.game == m.game then ArcadeSim.tourneyEntry(-1, score); Toast.show("Tournament entry: " .. score, 90) end
       p.tickets = (p.tickets or 0) + math.floor(score / 200)
       local board = ArcadeSim.board(m.game)
       local qualifies = #board < 10 or score > board[#board].s
@@ -468,4 +472,35 @@ function Play.gig(real)
     Gfx.neon(0, 228, 400, 12, 1)
   end
   Scene.push(sc)
+end
+
+-- head-to-head: you play their game, they post a score, loser pays up
+function Play.challenge(n)
+  local p = W.p
+  if p.tokens < 11 then Say("You need 10 tokens to bet, plus one to play.") return end
+  local game = type(n.rival) == "string" and n.rival or Content.ARCADE_GAMES[(n.id % #Content.ARCADE_GAMES) + 1].key
+  local def = ArcadeGames.list[game]
+  local theirs = ArcadeSim.challengeScore(n, game)
+  Say({ "\"" .. def.name .. ". Winner takes ten tokens.\"", n.first .. " plays first: " .. theirs .. "." }, { npc = n, name = n.first, after = function()
+    p.tokens = p.tokens - 1
+    runGame(def, { rng = U.rng(W.seed, "chal", W.t), credits = 1 }, function(st)
+      local mine = def.score(st)
+      WorldSim.advance(W.t + 6, 1)
+      if mine > theirs then
+        p.tokens = p.tokens + 10
+        n.p.f = U.clamp(n.p.f + 6, -100, 100); n.p.t = U.clamp(n.p.t + 4, -100, 100)
+        n.rival = nil
+        p.fame = p.fame + 2
+        Memory.add(n, "lostto", "lost a " .. def.name .. " challenge to " .. p.name, -1)
+        local seeds = ArcadeSim.witnesses()
+        Rumors.add("record", -1, p.name .. " beat " .. n.first .. " head-to-head at " .. def.name, 5, seeds)
+        Say({ mine .. " to " .. theirs .. ". You win.", "\"...Rematch. Next week.\"" }, { npc = n, name = n.first, mood = "angry" })
+      else
+        p.tokens = p.tokens - 10
+        n.p.an = U.clamp(n.p.an - 2, 0, 100)
+        n.rival = game
+        Say({ mine .. " to " .. theirs .. ". You lose ten tokens.", "\"Thanks for the tokens.\"" }, { npc = n, name = n.first, mood = "happy" })
+      end
+    end)
+  end })
 end
