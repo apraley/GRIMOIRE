@@ -54,7 +54,8 @@ end
 
 function RolodexScreen:actions(s)
 	local items = {
-		{ label = "EDIT CARD", action = function() Screens.push(SpoolEditScreen.new(s)) end },
+		{ label = "EDIT CARD", hint = s.notes ~= "" and U.truncate(s.notes, 60) or nil,
+			action = function() Screens.push(SpoolEditScreen.new(s)) end },
 		{ label = "WEIGH-IN", hint = "Set true grams left (spool weight minus empty spool).", action = function()
 			Dial.open({ title = "WEIGH-IN", label = "FILAMENT LEFT", value = U.roundInt(s.remainingGrams), min = 0,
 				max = s.nominalGrams, step = 1, unit = "g", degPerStep = 6,
@@ -194,15 +195,14 @@ function RolodexScreen:drawCard(s, x, y, w, h)
 	gfx.drawLine(x + 8, y + 40, x + w - 8, y + 40)
 
 	-- Spool picture with fill, and grams.
-	Sprites.spool(x + 44, y + 80, 32, Spool.pct(s), s.color)
-	local gx = x + 92
-	local gy = y + 48
+	Sprites.spool(x + 42, y + 72, 27, Spool.pct(s), s.color)
+	local gx = x + 86
+	local gy = y + 44
 	Text.draw(U.fmtGrams(s.remainingGrams), gx, gy, { color = "black", scale = 2 })
 	Text.draw("OF " .. U.fmtGrams(s.nominalGrams) .. "  " .. U.fmtPct(Spool.pct(s) * 100), gx, gy + 20, { color = "black" })
 	Draw.bar(gx, gy + 32, w - (gx - x) - 12, 7, Spool.pct(s), { color = gfx.kColorBlack })
-	Text.draw(string.format("%.0fM LEFT", Spool.metersRemaining(s)), gx, gy + 44, { color = "black" })
 	local days = Filament.daysUntilEmpty(s)
-	if days then Text.draw("EMPTY IN ~" .. days .. "D", gx, gy + 55, { color = "black" }) end
+	Text.draw(string.format("%.0fM LEFT", Spool.metersRemaining(s)) .. (days and ("  EMPTY ~" .. days .. "D") or ""), gx, gy + 44, { color = "black" })
 	if Spool.isLow(s, low) then
 		if Draw.blinkOn then
 			gfx.fillRect(x + w - 58, y + 28, 50, 11)
@@ -211,7 +211,7 @@ function RolodexScreen:drawCard(s, x, y, w, h)
 	end
 
 	-- Facts in two columns.
-	local fy = y + 120
+	local fy = y + 104
 	local col = (w - 36) // 2
 	local lx, rx = x + 12, x + 24 + col
 	local function fact(label, value, cx, cy)
@@ -221,7 +221,7 @@ function RolodexScreen:drawCard(s, x, y, w, h)
 	fact("PER G", string.format("$%.3f", Spool.costPerGram(s)), rx, fy)
 	fy = fy + 11
 	fact("VALUE", U.fmtMoney(Spool.valueRemaining(s)), lx, fy)
-	fact("DRY", s.dryness, rx, fy)
+	fact("MOISTURE", s.dryness, rx, fy)
 	fy = fy + 11
 	fact("WHERE", U.truncate(s.location, 10), lx, fy)
 	fact("TEMPS", s.favNozzle > 0 and (s.favNozzle .. "/" .. s.favBed) or "--", rx, fy)
@@ -232,31 +232,30 @@ function RolodexScreen:drawCard(s, x, y, w, h)
 	fy = fy + 11
 	fact("BOUGHT", U.fmtShortDate(s.purchasedAt), lx, fy)
 	fact("OPENED", s.openedAt > 0 and U.fmtShortDate(s.openedAt) or "SEALED", rx, fy)
-	fy = fy + 12
-	if s.notes ~= "" then
-		Text.drawWrapped(s.notes, lx, fy, w - 24, 1, { color = "black" })
-	end
 end
 
 function RolodexScreen:draw()
 	local total = Filament.totals()
-	Common.page("FILAMENT ROLODEX", string.format("%d SPOOLS %s", total.spools, U.fmtGrams(total.grams)),
+	local right = #self.spools > 0 and string.format("%d/%d  SORT:%s", self.idx, #self.spools, Filament.SORTS[self.sort]) or nil
+	Common.page("FILAMENT ROLODEX", right,
 		"CRANK:FLIP  " .. FontData.icon.left .. FontData.icon.right .. ":FILTER  A:ACTIONS  B:BACK", "dots")
 	self:drawTabs()
-	local x, y, w, h = 40, 46, 320, 178
+	local x, y, w, h = 40, 50, 320, 170
 	-- Card stack behind: offset edges suggest more cards.
 	local behind = math.min(4, math.max(0, #self.spools - 1))
 	for i = behind, 1, -1 do
 		gfx.setColor(gfx.kColorWhite)
-		gfx.fillRect(x + i * 3, y - i * 3, w, 20)
+		gfx.fillRect(x + i * 3, y - i * 2, w, 20)
 		gfx.setColor(gfx.kColorBlack)
-		gfx.drawRect(x + i * 3, y - i * 3, w, 20)
+		gfx.drawRect(x + i * 3, y - i * 2, w, 20)
 	end
-	-- Rolodex drum.
+	-- Rolodex drum with shelf totals on it.
 	gfx.setColor(gfx.kColorBlack)
-	gfx.fillRect(x - 20, y + h - 4, w + 40, 6)
-	gfx.fillCircleAtPoint(x - 20, y + h - 1, 6)
-	gfx.fillCircleAtPoint(x + w + 20, y + h - 1, 6)
+	gfx.fillRect(x - 30, 216, w + 60, 11)
+	gfx.fillCircleAtPoint(x - 30, 221, 7)
+	gfx.fillCircleAtPoint(x + w + 30, 221, 7)
+	Text.draw(string.format("%d SPOOLS  %s  %s ON THE SHELF  %d LOW", total.spools, U.fmtGrams(total.grams),
+		U.fmtMoney(total.value), total.low), 200, 217, { color = "white", align = "center" })
 	local s = self:current()
 	if s == nil then
 		local msg = self.filter == 1 and "No spools yet. Press A to add yer first spool." or "No spools match this filter."
@@ -280,8 +279,6 @@ function RolodexScreen:draw()
 	else
 		self:drawCard(s, x, y, w, h - 6)
 	end
-	Text.draw(string.format("%d/%d", self.idx, #self.spools), 396, 34, { color = "black", align = "right" })
-	Text.draw("SORT " .. Filament.SORTS[self.sort], 4, 34, { color = "black" })
 end
 
 ---------------------------------------------------------------------------

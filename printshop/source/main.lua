@@ -18,6 +18,7 @@ import "lib/util"
 import "lib/clock"
 import "lib/rng"
 import "lib/events"
+import "lib/memo"
 
 import "data/font5x9"
 import "models/enums"
@@ -38,6 +39,14 @@ import "services/queue"
 import "services/stats"
 import "services/maint_service"
 import "services/cal_service"
+
+-- Aggregates drawn every frame are memoized until the data changes.
+for _, name in ipairs({ "combo", "combos", "overall", "forSpool", "causes", "projects", "weekly", "suggestions", "metersPrinted", "filamentCost" }) do
+	Memo.wrap(Stats, name, "Stats." .. name)
+end
+for _, name in ipairs({ "list", "dueSoon" }) do Memo.wrap(MaintService, name, "Maint." .. name) end
+for _, name in ipairs({ "lowSpools", "totals", "daysUntilEmpty" }) do Memo.wrap(Filament, name, "Filament." .. name) end
+for _, name in ipairs({ "backlog", "counts" }) do Memo.wrap(Queue, name, "Queue." .. name) end
 
 import "providers/provider"
 import "providers/demo_provider"
@@ -92,6 +101,7 @@ function App.init()
 
 	Captain.init()
 	App.subscribe()
+	App.healJobs()
 	Printing.init()
 	App.dailyChores(true)
 
@@ -107,6 +117,17 @@ function App.init()
 		Toast.show("SAVE WAS DAMAGED; BACKED UP", "warn")
 	end
 	Store.save()
+end
+
+-- Jobs without temperatures (seed data, imports, old saves) get the
+-- recommended profile so every queue row shows real settings.
+function App.healJobs()
+	for _, j in ipairs(Store.data.jobs) do
+		if Job.isActive(j) and j.status ~= "PRINTING" and j.status ~= "PAUSED" and j.nozzleTemp == 0 then
+			Queue.applyProfile(j)
+			Store.markDirty()
+		end
+	end
 end
 
 -- Domain events -> toasts, sounds and prompts.
@@ -207,6 +228,7 @@ function App.resetData(empty)
 	Events.reset()
 	Captain.init()
 	App.subscribe()
+	App.healJobs()
 	Draw.setTheme(Store.settings().theme)
 	Printing.init()
 	Screens.stack = {}
@@ -223,6 +245,11 @@ function App.update()
 	Printing.update(dt)
 	-- Provider state is saved every 30s while something is happening.
 	App.persistMs = App.persistMs + dt
+	App.minuteMs = (App.minuteMs or 0) + dt
+	if App.minuteMs > 60000 then
+		App.minuteMs = 0
+		Memo.bump()      -- time-based values ("due in N days") move on
+	end
 	if App.persistMs > 30000 then
 		App.persistMs = 0
 		local st = Printing.provider:getStatus().state

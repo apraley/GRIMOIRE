@@ -66,12 +66,7 @@ function StatsScreen:drawOverview()
 	row("HOURS", U.fmtHours(o.hours))
 	row("PLASTIC", U.fmtGrams(o.grams))
 	row("METRES", string.format("%.0f", Stats.metersPrinted()))
-	local spent = 0
-	for _, h in ipairs(Store.data.history) do
-		local s = Store.spool(h.spoolId)
-		if s then spent = spent + Filament.cost(s, h.grams) end
-	end
-	row("COST", U.fmtMoney(spent))
+	row("COST", U.fmtMoney(Stats.filamentCost()))
 	local streak = Store.activePrinter().stats.streak
 	row("STREAK", string.format("%+d", streak))
 	local t = Filament.totals()

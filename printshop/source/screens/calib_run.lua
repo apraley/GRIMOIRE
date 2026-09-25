@@ -219,12 +219,19 @@ function CalibRunScreen:draw()
 		else
 			local floorH = math.max(11, math.min(16, 150 // #labels))
 			local ty = 52
-			Sprites.tower(140, ty, 60, labels, self.pickIdx, floorH)
-			Draw.cursor(122, ty + (self.pickIdx - 1) * floorH + (floorH - 9) // 2, gfx.kColorBlack)
+			Sprites.tower(210, ty, 60, labels, self.pickIdx, floorH)
+			Draw.cursor(192, ty + (self.pickIdx - 1) * floorH + (floorH - 9) // 2, gfx.kColorBlack)
 		end
-		Text.draw(st.label .. ": " .. labels[self.pickIdx], 380, 60, { color = "black", align = "right" })
-		if st.hint then Text.draw(st.hint, 380, 74, { color = "black", align = "right" }) end
-		Text.draw(FontData.icon.crank .. " TURN CRANK", 380, 188, { color = "black", align = "right" })
+		if st.style == "grid" then
+			Text.draw(st.label .. ": " .. labels[self.pickIdx], 200, 160, { color = "black", align = "center", scale = 2 })
+			if st.hint then Text.draw(st.hint, 200, 182, { color = "black", align = "center" }) end
+		else
+			-- Tower on the right half; the reading on the left.
+			Text.draw(st.label, 20, 70, { color = "black" })
+			Text.draw(labels[self.pickIdx], 20, 84, { color = "black", scale = 2 })
+			if st.hint then Text.drawWrapped(st.hint, 20, 110, 100, 3, { color = "black" }) end
+			Text.draw(FontData.icon.crank .. " TURN CRANK", 20, 186, { color = "black" })
+		end
 	elseif st.type == "summary" then
 		Draw.window(8, 34, 384, 170, { title = "RESULTS  " .. title })
 		local y = 50

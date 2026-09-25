@@ -56,6 +56,7 @@ function Store.load()
 	end
 
 	Store.data = Schema.repair(data)
+	if Memo then Memo.bump() end
 	if Store.data.meta.createdAt == 0 then Store.data.meta.createdAt = Clock.now() end
 	Store.loadReport = report
 	Store.dirty = report.seeded or report.migratedFrom ~= nil
@@ -64,6 +65,7 @@ end
 
 function Store.markDirty()
 	Store.dirty = true
+	if Memo then Memo.bump() end
 end
 
 function Store.save(force)
@@ -109,6 +111,7 @@ function Store.reset(emptyShop)
 		Store.data = Schema.repair(Seed.build(Clock.now()))
 	end
 	Store.dirty = true
+	if Memo then Memo.bump() end
 	Store.save(true)
 end
 

@@ -607,6 +607,80 @@ test("bridge provider derives complete/failed events from state changes", functi
 	Printing.reload()
 end)
 
+test("bridge provider talks to the real Python bridge (end to end)", function()
+	if os.execute("command -v curl >/dev/null && command -v python3 >/dev/null") ~= true then
+		print("\n  (skipped: needs curl + python3)")
+		return
+	end
+	local port = 18787
+	os.execute("cd bridge && (python3 printshop_bridge.py --demo --speed 2000 --bind 127.0.0.1 --port " .. port ..
+		" >/dev/null 2>&1 & echo $! > /tmp/printshop_bridge.pid)")
+	os.execute("for i in 1 2 3 4 5 6 7 8 9 10; do curl -s localhost:" .. port .. "/api/v1/status >/dev/null && break; sleep 0.3; done")
+	-- A fake connection with the documented http API, backed by curl.
+	local realNew = playdate.network.http.new
+	rawset(playdate.network.http, "new", function(host, p)
+		local conn, m = MOCK.object("playdate.network.http", {})
+		local body, status, cbs = "", nil, {}
+		m.setRequestCallback = function(_, f) cbs.req = f end
+		m.setRequestCompleteCallback = function(_, f) cbs.done = f end
+		m.setConnectionClosedCallback = function(_, f) cbs.closed = f end
+		m.setConnectTimeout = function() end
+		m.getBytesAvailable = function() return #body end
+		m.read = function(_, n) local out = body:sub(1, n) body = body:sub(n + 1) return out end
+		m.getResponseStatus = function() return status end
+		m.getError = function() return nil end
+		m.close = function() end
+		local function run(cmd)
+			local f = io.popen(cmd)
+			local out = f:read("a")
+			f:close()
+			status = tonumber(out:match("(%d%d%d)$"))
+			body = out:gsub("%d%d%d$", "")
+			-- Deliver asynchronously on the next frame, like the device.
+			MOCK.pending = function() cbs.req() cbs.done() end
+			return true
+		end
+		m.get = function(_, path) return run(string.format("curl -s -w '%%{http_code}' http://%s:%d%s", host, p, path)) end
+		m.post = function(_, path, headers, data)
+			return run(string.format("curl -s -w '%%{http_code}' -X POST -d '%s' http://%s:%d%s", data or "{}", host, p, path))
+		end
+		return conn
+	end)
+	local ok2, err = pcall(function()
+		boot({})
+		local printer = Store.activePrinter()
+		printer.provider = "bridge"
+		printer.host = "127.0.0.1"
+		printer.port = port
+		Printing.reload()
+		local function pump(n)
+			for _ = 1, n do
+				MOCK.frame(nil, 0, 1000)
+				if MOCK.pending then local f = MOCK.pending MOCK.pending = nil f() end
+			end
+		end
+		pump(6)
+		local snap = Printing.snapshot()
+		ok(snap.online, "bridge online: " .. tostring(snap.message))
+		ok(snap.state == "HEATING" or snap.state == "PRINTING" or snap.state == "COMPLETE", snap.state)
+		local j = U.find(Store.data.jobs, function(x) return x.name == "BRIDGE BENCHY" end)
+		ok(j, "bridge job adopted into the queue")
+		-- Wait for the demo bridge print to finish; the shop logs it.
+		for _ = 1, 40 do
+			pump(2)
+			if j.status == "COMPLETE" then break end
+			os.execute("sleep 0.1")
+		end
+		eq(j.status, "COMPLETE", "completion derived from bridge state")
+		eq(Store.data.history[#Store.data.history].jobName, "BRIDGE BENCHY")
+		printer.provider = "demo"
+		Printing.reload()
+	end)
+	rawset(playdate.network.http, "new", realNew)
+	os.execute("kill $(cat /tmp/printshop_bridge.pid) 2>/dev/null")
+	if not ok2 then error(err, 0) end
+end)
+
 test("jobs started on a live printer are adopted into the queue", function()
 	boot({})
 	local printer = Store.activePrinter()

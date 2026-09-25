@@ -126,66 +126,110 @@ end
 
 function HomeScreen:drawScene(snap)
 	local x, y, w, h = 0, 15, 206, 157
-	-- Wall.
+	local benchY = y + h - 14
 	Draw.fillPattern("brick", x, y, w, h)
-	-- Window with sky by time of day.
-	local hour = Clock.hour()
-	gfx.setColor(gfx.kColorWhite)
-	gfx.fillRect(x + 128, y + 8, 60, 34)
+
+	-- Window (top right) with sky by time of day.
+	local wx, wy, ww, wh = x + 134, y + 6, 64, 32
 	gfx.setColor(gfx.kColorBlack)
-	gfx.drawRect(x + 127, y + 7, 62, 36)
-	gfx.drawRect(x + 126, y + 6, 64, 38)
+	gfx.fillRect(wx - 2, wy - 2, ww + 4, wh + 4)
+	gfx.setColor(gfx.kColorWhite)
+	gfx.fillRect(wx, wy, ww, wh)
+	local hour = Clock.hour()
 	if hour >= 19 or hour < 6 then
-		Draw.fillPattern("dark88", x + 128, y + 8, 60, 34)
+		Draw.fillPattern("dark88", wx, wy, ww, wh)
 		gfx.setColor(gfx.kColorWhite)
-		gfx.fillCircleAtPoint(x + 170, y + 20, 6)
+		gfx.fillCircleAtPoint(wx + 46, wy + 10, 6)
 		gfx.setColor(gfx.kColorBlack)
-		gfx.fillCircleAtPoint(x + 167, y + 18, 5)
+		gfx.fillCircleAtPoint(wx + 43, wy + 8, 5)
 		gfx.setColor(gfx.kColorWhite)
-		gfx.drawPixel(x + 140, y + 14)
-		gfx.drawPixel(x + 150, y + 30)
-		gfx.drawPixel(x + 180, y + 34)
+		gfx.drawPixel(wx + 10, wy + 6)
+		gfx.drawPixel(wx + 22, wy + 22)
+		gfx.drawPixel(wx + 56, wy + 26)
 	else
 		gfx.setColor(gfx.kColorBlack)
-		gfx.drawCircleAtPoint(x + 172, y + 20, 7)
-		Draw.fillPattern("light12", x + 128, y + 32, 60, 10)
+		gfx.drawCircleAtPoint(wx + 46, wy + 11, 6)
+		Draw.fillPattern("light12", wx, wy + 22, ww, wh - 22)
 	end
 	gfx.setColor(gfx.kColorBlack)
-	gfx.drawLine(x + 158, y + 8, x + 158, y + 42)
-	gfx.drawLine(x + 128, y + 25, x + 188, y + 25)
+	gfx.drawLine(wx + ww // 2, wy, wx + ww // 2, wy + wh)
+	gfx.drawLine(wx, wy + wh // 2, wx + ww, wy + wh // 2)
 
-	-- Shelf with the first spools in the Rolodex (loaded AMS slots first).
-	local shelfY = y + 50
-	gfx.fillRect(x + 118, shelfY + 22, 84, 3)
+	-- Upper shelf: the AMS lite spools, straight from the Rolodex.
+	local shelfY = y + 70
 	local ams = Printing.provider:getAMSOrSpoolState()
 	local shown = 0
 	for _, slot in ipairs(ams.slots or {}) do
 		if slot.spoolId and shown < 4 then
 			local s = Store.spool(slot.spoolId)
 			if s then
-				Sprites.spoolEdge(x + 122 + shown * 20, shelfY, 16, 22, Spool.pct(s), s.color)
+				local sx = x + 128 + shown * 19
+				Sprites.spoolEdge(sx, shelfY - 22, 16, 22, Spool.pct(s), s.color)
 				if ams.active == slot.slot and Draw.blinkOn then
-					gfx.fillTriangle(x + 127 + shown * 20, shelfY - 6, x + 133 + shown * 20, shelfY - 6, x + 130 + shown * 20, shelfY - 2)
+					gfx.setColor(gfx.kColorBlack)
+					gfx.fillTriangle(sx + 4, shelfY - 30, sx + 12, shelfY - 30, sx + 8, shelfY - 25)
 				end
 				shown = shown + 1
 			end
 		end
 	end
+	gfx.setColor(gfx.kColorBlack)
+	gfx.fillRect(x + 122, shelfY, 84, 4)
+	gfx.fillRect(x + 128, shelfY + 4, 3, 6)
+	gfx.fillRect(x + 196, shelfY + 4, 3, 6)
 	if shown == 0 then
-		Text.draw("(NO AMS)", x + 160, shelfY + 8, { color = "black", align = "center" })
+		gfx.setColor(gfx.kColorWhite)
+		gfx.fillRect(x + 134, shelfY - 12, 60, 11)
+		Text.draw("NO AMS", x + 164, shelfY - 11, { color = "black", align = "center" })
 	end
-	-- Low spool flag on the shelf.
-	if #Filament.lowSpools() > 0 and Draw.blinkOn then
-		Text.draw(FontData.icon.warn, x + 120, shelfY + 28, { color = "black" })
-		Text.draw("LOW", x + 128, shelfY + 28, { color = "black" })
+
+	-- Lower shelf: the Captain's Benchy, and a warning flag for low spools.
+	local s2 = y + 112
+	gfx.setColor(gfx.kColorBlack)
+	gfx.fillRect(x + 122, s2, 84, 4)
+	gfx.fillRect(x + 128, s2 + 4, 3, 6)
+	gfx.fillRect(x + 196, s2 + 4, 3, 6)
+	local bob = (Draw.t // 500) % 2
+	local bx, by = x + 150, s2 - 1 - bob
+	gfx.setColor(gfx.kColorWhite)
+	gfx.fillPolygon(bx, by - 9, bx + 40, by - 11, bx + 34, by, bx + 5, by)
+	gfx.setColor(gfx.kColorBlack)
+	gfx.drawPolygon(bx, by - 9, bx + 40, by - 11, bx + 34, by, bx + 5, by)
+	gfx.setColor(gfx.kColorWhite)
+	gfx.fillRect(bx + 6, by - 19, 15, 9)
+	gfx.setColor(gfx.kColorBlack)
+	gfx.drawRect(bx + 6, by - 19, 15, 9)
+	gfx.fillRect(bx + 9, by - 16, 3, 3)
+	gfx.fillRect(bx + 15, by - 16, 3, 3)
+	gfx.fillRect(bx + 8, by - 25, 4, 6)
+	-- The Captain himself: hat and beard on the foredeck.
+	gfx.fillRect(bx + 25, by - 21, 8, 3)
+	gfx.setColor(gfx.kColorWhite)
+	gfx.fillRect(bx + 26, by - 18, 6, 6)
+	gfx.setColor(gfx.kColorBlack)
+	gfx.drawRect(bx + 26, by - 18, 6, 6)
+	Draw.fillPattern("gray50", bx + 26, by - 14, 6, 3)
+	if Captain.hasNews() and Draw.blinkOn then
+		gfx.setColor(gfx.kColorWhite)
+		gfx.fillRect(bx + 32, by - 36, 12, 13)
+		gfx.setColor(gfx.kColorBlack)
+		gfx.drawRect(bx + 32, by - 36, 12, 13)
+		gfx.drawLine(bx + 33, by - 23, bx + 31, by - 20)
+		Text.draw("!", bx + 35, by - 34, { color = "black" })
+	end
+	if #Filament.lowSpools() > 0 then
+		gfx.setColor(gfx.kColorWhite)
+		gfx.fillRect(x + 124, s2 - 12, 24, 11)
+		Text.draw(Draw.blinkOn and FontData.icon.warn or " ", x + 126, s2 - 11, { color = "black" })
+		Text.draw("LO", x + 134, s2 - 11, { color = "black" })
 	end
 
 	-- Bench.
-	Draw.fillPattern("wood", x, y + h - 14, w, 14)
+	Draw.fillPattern("wood", x, benchY, w, 14)
 	gfx.setColor(gfx.kColorBlack)
-	gfx.drawLine(x, y + h - 14, x + w, y + h - 14)
+	gfx.drawLine(x, benchY, x + w, benchY)
 
-	-- The printer.
+	-- The printer stands on the bench.
 	local job = snap.job
 	local pj = snap.pjob
 	local spoolFrac = snap.spool and Spool.pct(snap.spool) or 0.6
@@ -195,24 +239,9 @@ function HomeScreen:drawScene(snap)
 	if self.scrub and snap.progress.totalLayers > 0 then
 		progress = self.scrub / snap.progress.totalLayers
 	end
-	Sprites.printer(x + 12, y + 30, snap.state, Draw.t, {
+	Sprites.printer(x + 10, benchY - 105, snap.state, Draw.t, {
 		progress = progress, shape = shape, color = color, spoolFrac = spoolFrac,
 	})
-
-	-- A tiny Benchy on the shelf keeps an eye on things.
-	gfx.setColor(gfx.kColorBlack)
-	gfx.fillPolygon(x + 150, shelfY + 36, x + 196, shelfY + 36, x + 190, shelfY + 46, x + 156, shelfY + 46)
-	gfx.setColor(gfx.kColorWhite)
-	gfx.fillRect(x + 158, shelfY + 26, 16, 10)
-	gfx.setColor(gfx.kColorBlack)
-	gfx.drawRect(x + 158, shelfY + 26, 16, 10)
-	gfx.fillRect(x + 160, shelfY + 21, 4, 5)
-	gfx.fillRect(x + 180, shelfY + 28, 6, 8)
-	gfx.fillRect(x + 178, shelfY + 26, 10, 3)
-	if Captain.hasNews() and Draw.blinkOn then
-		Draw.window(x + 168, shelfY + 2, 20, 18, { invert = false })
-		Text.draw("!", x + 176, shelfY + 7)
-	end
 end
 
 function HomeScreen:drawStatus(snap)
@@ -320,8 +349,10 @@ function HomeScreen:drawStations()
 	end
 	local cx = 10 + (self.sel - 1) * 49 + 14 + self.slide
 	local label = HomeScreen.STATIONS[self.sel].label
-	Text.draw(label, U.clamp(cx, Text.width(label) // 2 + 2, 398 - Text.width(label) // 2), y + 38, { align = "center", color = "black" })
-	Draw.cursor(U.clamp(cx - Text.width(label) // 2 - 10, 1, 390), y + 39, gfx.kColorBlack)
+	local lw = Text.width(label)
+	local lx = U.clamp(cx - lw // 2, 14, 396 - lw)
+	Text.draw(label, lx, y + 38, { color = "black" })
+	Draw.cursor(lx - 10, y + 39, gfx.kColorBlack)
 end
 
 function HomeScreen:drawTicker(dtMs)

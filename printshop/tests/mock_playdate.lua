@@ -95,6 +95,7 @@ rawset(playdate, "kButtonB", 16)
 rawset(playdate, "kButtonA", 32)
 
 local gfx = playdate.graphics
+MOCK.object = object
 
 ---------------------------------------------------------------------------
 -- behaviour overrides

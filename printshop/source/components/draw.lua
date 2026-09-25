@@ -130,12 +130,7 @@ function Draw.bar(x, y, w, h, frac, opts)
 	local fw = math.floor((w - 4) * frac + 0.5)
 	if fw > 0 then
 		if opts.pattern then
-			if fg == gfx.kColorWhite then
-				-- White-on-black: draw pattern then knock out with white ink.
-				Draw.pattern(opts.pattern)
-			else
-				Draw.pattern(opts.pattern)
-			end
+			Draw.pattern(opts.pattern)
 			gfx.fillRect(x + 2, y + 2, fw, h - 4)
 		else
 			gfx.setColor(fg)

@@ -155,7 +155,7 @@ function ProfileScreen:update()
 			items[#items + 1] = { label = "RUN " .. proc.short, action = function() Screens.push(CalibRunScreen.new(proc, p.key)) end }
 		end
 		items[#items + 1] = { label = "PRINT STATS", action = function()
-			Common.say({ text = Captain.comboReport(p.material, p.manufacturer == "ANY" and nil or p.manufacturer), mood = "neutral" })
+			Common.say({ text = Captain.comboReport(p.material, p.manufacturer), mood = "neutral" })
 		end }
 		items[#items + 1] = { label = "DELETE PROFILE", action = function()
 			Confirm("DELETE PROFILE?", function() CalService.delete(p) Screens.pop() end)

@@ -281,6 +281,7 @@ end
 
 -- "PETG / OVERTURE: 12 prints, 3 failures..." for a combo.
 function Captain.comboReport(material, maker)
+	maker = maker or "ANY"
 	local a = Stats.combo(material, maker)
 	if a.prints == 0 then
 		return "No prints logged for " .. material .. " / " .. maker .. " yet. Print something and I'll keep score."

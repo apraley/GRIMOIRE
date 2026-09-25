@@ -216,3 +216,13 @@ function Stats.metersPrinted()
 	each(nil, function(h) m = m + h.grams / Enums.gramsPerMeter(h.material) end)
 	return m
 end
+
+-- Money spent on filament across history (spools that still exist).
+function Stats.filamentCost()
+	local spent = 0
+	each(nil, function(h)
+		local s = h.spoolId ~= "" and Store.spool(h.spoolId) or nil
+		if s then spent = spent + Filament.cost(s, h.grams) end
+	end)
+	return spent
+end

@@ -233,149 +233,139 @@ function Sprites.printer(x, y, st, t, opts)
 	opts = opts or {}
 	local progress = U.clamp(opts.progress or 0, 0, 1)
 	local blink = (t // 300) % 2 == 0
+	local shape = opts.shape or "cube"
 
-	-- Base.
-	rect(BLACK, x, y + 88, 100, 16)
-	rect(WHITE, x + 4, y + 92, 20, 2)
-	rect(WHITE, x + 4, y + 96, 20, 2)
-	-- Front screen shows a tiny status glyph.
-	rect(WHITE, x + 70, y + 91, 24, 10)
-	box(BLACK, x + 71, y + 92, 22, 8)
+	-- Base: white housing, dark kick plate, status screen on the front.
+	rect(WHITE, x, y + 86, 100, 16)
+	box(BLACK, x, y + 86, 100, 16)
+	pat("dark75", x + 1, y + 97, 98, 4)
+	line(BLACK, x + 1, y + 96, x + 98, y + 96)
+	rect(BLACK, x + 70, y + 88, 24, 8)
+	gfx.setColor(WHITE)
 	if st == "PRINTING" then
-		rect(BLACK, x + 73, y + 94, floor(18 * progress), 4)
-	elseif st == "ERROR" and blink then
-		rect(BLACK, x + 81, y + 93, 2, 4)
-		rect(BLACK, x + 81, y + 98, 2, 1)
+		gfx.fillRect(x + 72, y + 91, math.max(1, floor(20 * progress)), 2)
+	elseif st == "ERROR" then
+		if blink then gfx.fillRect(x + 81, y + 89, 2, 3) gfx.drawPixel(x + 81, y + 94) gfx.drawPixel(x + 82, y + 94) end
 	elseif st == "COMPLETE" then
-		line(BLACK, x + 76, y + 96, x + 79, y + 98)
-		line(BLACK, x + 79, y + 98, x + 86, y + 93)
+		gfx.drawLine(x + 77, y + 91, x + 79, y + 93)
+		gfx.drawLine(x + 79, y + 93, x + 86, y + 89)
 	elseif st == "HEATING" then
-		if blink then rect(BLACK, x + 79, y + 94, 6, 4) end
+		if blink then gfx.fillRect(x + 78, y + 90, 8, 4) end
 	else
-		line(BLACK, x + 76, y + 96, x + 88, y + 96)
+		gfx.drawLine(x + 75, y + 92, x + 89, y + 92)
 	end
-	-- Feet.
-	rect(BLACK, x + 4, y + 104, 8, 2)
-	rect(BLACK, x + 88, y + 104, 8, 2)
+	rect(BLACK, x + 4, y + 102, 8, 3)
+	rect(BLACK, x + 88, y + 102, 8, 3)
 
-	-- Z tower (left) with shading.
-	rect(WHITE, x + 2, y + 10, 16, 78)
-	pat("gray50", x + 12, y + 10, 6, 78)
-	box(BLACK, x + 2, y + 10, 16, 78)
-	line(BLACK, x + 9, y + 12, x + 9, y + 86)
+	-- Z tower on the left with a shaded side and lead screw.
+	rect(WHITE, x + 2, y + 12, 16, 74)
+	pat("gray50", x + 12, y + 13, 5, 72)
+	box(BLACK, x + 2, y + 12, 16, 74)
+	line(BLACK, x + 8, y + 14, x + 8, y + 84)
 
-	-- Spool on top of the tower.
-	local spoolColor = opts.color or "BLACK"
-	local spin = nil
-	if st == "PRINTING" then spin = t / 900 end
-	Sprites.spool(x + 10, y + 5, 9, opts.spoolFrac or 0.7, spoolColor, { spin = spin })
+	-- Spool on top of the tower (spins while printing).
+	local spin = st == "PRINTING" and (t / 900) or nil
+	Sprites.spool(x + 10, y + 5, 9, opts.spoolFrac or 0.7, opts.color or "BLACK", { spin = spin })
 
-	-- Bed (with the part).
-	local bedY = y + 80
-	local bedShift = 0
-	if st == "PRINTING" then bedShift = floor(sin(t / 260) * 3) end
-	rect(BLACK, x + 30 + bedShift, bedY + 4, 64, 4)
-	pat("dark75", x + 30 + bedShift, bedY, 64, 4)
-	box(BLACK, x + 30 + bedShift, bedY, 64, 4)
-	line(BLACK, x + 62, bedY + 8, x + 62, y + 88)
+	-- Bed: white textured plate on a black carriage; slides in Y (a small
+	-- sideways wobble reads as motion in a front view).
+	local bedY = y + 76
+	local bedShift = st == "PRINTING" and floor(sin(t / 260) * 2) or 0
+	local bx = x + 28 + bedShift
+	rect(BLACK, bx + 4, bedY + 5, 56, 3)
+	rect(WHITE, bx, bedY, 66, 5)
+	box(BLACK, bx, bedY, 66, 5)
+	gfx.setColor(BLACK)
+	for k = bx + 3, bx + 62, 4 do gfx.drawPixel(k, bedY + 2) end
+	line(BLACK, x + 60, bedY + 8, x + 60, y + 86)
 
-	local partH = 26
-	local partW = 34
-	local px = x + 45 + bedShift
-	local shownProgress = progress
-	if st == "COMPLETE" then shownProgress = 1 end
-	if st == "IDLE" or st == "OFFLINE" then shownProgress = 0 end
+	-- The part.
+	local partH, partW = 28, 34
+	local px = bx + 16
+	local shown = progress
+	if st == "COMPLETE" then shown = 1 end
+	if st == "IDLE" or st == "OFFLINE" then shown = 0 end
 	local partTop = bedY
-	if shownProgress > 0 and st ~= "ERROR" then
-		partTop = Sprites.part(px, bedY - partH, partW, partH, opts.shape or "cube", shownProgress, { ghost = false })
+	if shown > 0 and st ~= "ERROR" then
+		partTop = Sprites.part(px, bedY - partH, partW, partH, shape, shown, { ghost = false })
 	end
-
-	-- Spaghetti on error: a deterministic tangle.
 	if st == "ERROR" then
+		-- Spaghetti: a deterministic tangle where the part used to be.
 		local rng = Rng.new(77)
 		gfx.setColor(BLACK)
-		local lx, ly = px + 17, bedY - 2
-		for _ = 1, 26 do
-			local nx = U.clamp(lx + rng:int(-7, 7), px - 4, px + partW + 4)
-			local ny = U.clamp(ly + rng:int(-5, 3), bedY - 22, bedY - 1)
+		local lx, ly = px + 17, bedY - 1
+		for _ = 1, 30 do
+			local nx = U.clamp(lx + rng:int(-7, 7), px - 6, px + partW + 6)
+			local ny = U.clamp(ly + rng:int(-5, 3), bedY - 20, bedY - 1)
 			gfx.drawLine(lx, ly, nx, ny)
 			lx, ly = nx, ny
 		end
 	end
 
-	-- Gantry height follows the print.
+	-- Gantry rides the layer height.
 	local gy
-	if st == "PRINTING" or st == "HEATING" then gy = math.min(partTop, bedY) - 24
-	elseif st == "PAUSED" then gy = math.min(partTop, bedY) - 36
-	else gy = y + 22 end
-	gy = U.clamp(gy, y + 16, bedY - 24)
-	rect(WHITE, x + 18, gy, 78, 7)
-	box(BLACK, x + 18, gy, 78, 7)
-	line(BLACK, x + 20, gy + 3, x + 94, gy + 3)
+	if st == "PRINTING" or st == "HEATING" then gy = partTop - 28
+	elseif st == "PAUSED" then gy = partTop - 40
+	else gy = y + 20 end
+	gy = U.clamp(gy, y + 18, bedY - 28)
+	rect(WHITE, x + 18, gy, 80, 6)
+	box(BLACK, x + 18, gy, 80, 6)
+	line(BLACK, x + 20, gy + 3, x + 95, gy + 3)
 
-	-- Toolhead position.
+	-- Toolhead.
 	local tx
 	if st == "PRINTING" then
-		local l, r = Sprites.partSpan(opts.shape or "cube", progress)
+		local l, r = Sprites.partSpan(shape, progress)
 		local cx = px + partW / 2
-		local sweep = (sin(t / 180) * 0.5 + 0.5)
+		local sweep = sin(t / 180) * 0.5 + 0.5
 		tx = floor(cx + (l + (r - l) * sweep) * partW / 2) - 9
 	elseif st == "COMPLETE" or st == "IDLE" or st == "OFFLINE" then
-		tx = x + 76
+		tx = x + 78
 	else
 		tx = px + 8
 	end
 	tx = U.clamp(tx, x + 20, x + 78)
-	local th = gy - 4
-	rect(WHITE, tx, th, 18, 20)
-	box(BLACK, tx, th, 18, 20)
+	local th = gy - 2
+	rect(WHITE, tx, th, 18, 22)
+	box(BLACK, tx, th, 18, 22)
 	rect(BLACK, tx, th, 18, 4)
 	gfx.setColor(BLACK)
-	gfx.drawCircleAtPoint(tx + 9, th + 11, 4)
-	-- Fan blades spin while printing.
-	local fa = (st == "PRINTING" or st == "HEATING") and (t / 60) or 0
-	gfx.drawLine(tx + 9, th + 11, tx + 9 + floor(math.cos(fa) * 3), th + 11 + floor(sin(fa) * 3))
-	-- Nozzle.
-	gfx.fillTriangle(tx + 6, th + 20, tx + 12, th + 20, tx + 9, th + 24)
-	-- Filament path from the spool to the toolhead.
-	gfx.setColor(BLACK)
-	gfx.drawLine(x + 18, y + 6, tx + 4, th)
+	gfx.drawCircleAtPoint(tx + 9, th + 12, 4)
+	local fa = (st == "PRINTING" or st == "HEATING") and (t / 60) or 0.8
+	gfx.drawLine(tx + 9, th + 12, tx + 9 + floor(math.cos(fa) * 3 + 0.5), th + 12 + floor(sin(fa) * 3 + 0.5))
+	gfx.fillTriangle(tx + 6, th + 22, tx + 12, th + 22, tx + 9, th + 26)
+	-- Filament from the spool into the toolhead.
+	gfx.drawLine(x + 18, y + 5, tx + 5, th)
 
 	if st == "PRINTING" then
-		-- Fresh extrusion bead under the nozzle.
-		if blink then gfx.drawPixel(tx + 9, th + 25) end
+		if blink then gfx.drawPixel(tx + 9, th + 27) end
 	elseif st == "HEATING" then
-		-- Heat shimmer from bed and nozzle.
-		local phase = t / 120
+		local phase = t / 12
 		gfx.setColor(BLACK)
-		gfx.drawSineWave(x + 34, bedY - 4, x + 90, bedY - 4, 1, 1, 10, phase)
-		gfx.drawSineWave(x + 34, bedY - 9, x + 90, bedY - 9, 1, 1, 12, phase + 4)
-		if blink then
-			gfx.fillCircleAtPoint(tx + 9, th + 26, 2)
-		end
+		gfx.drawSineWave(bx + 2, bedY - 5, bx + 64, bedY - 5, 1, 1, 10, phase)
+		gfx.drawSineWave(bx + 2, bedY - 11, bx + 64, bedY - 11, 1, 1, 12, phase + 4)
+		if blink then gfx.fillCircleAtPoint(tx + 9, th + 28, 2) end
 	elseif st == "PAUSED" then
 		if blink then
-			rect(BLACK, x + 40, y + 2, 7, 18)
-			rect(BLACK, x + 52, y + 2, 7, 18)
+			rect(BLACK, x + 42, y + 1, 6, 14)
+			rect(BLACK, x + 52, y + 1, 6, 14)
 		end
 	elseif st == "ERROR" then
 		if blink then
 			gfx.setColor(BLACK)
-			gfx.fillTriangle(x + 50, y - 2, x + 38, y + 20, x + 62, y + 20)
+			gfx.fillTriangle(x + 50, y - 4, x + 38, y + 16, x + 62, y + 16)
 			gfx.setColor(WHITE)
-			gfx.fillRect(x + 49, y + 5, 3, 8)
-			gfx.fillRect(x + 49, y + 15, 3, 3)
+			gfx.fillRect(x + 49, y + 3, 3, 7)
+			gfx.fillRect(x + 49, y + 12, 3, 2)
 		end
-		-- Smoke puffs rising.
 		gfx.setColor(BLACK)
 		local s = (t // 90) % 20
 		gfx.drawCircleAtPoint(tx + 14, th - 2 - s, 2 + s // 8)
 		gfx.drawCircleAtPoint(tx + 4, th - 8 - (s + 10) % 20, 2)
 	elseif st == "COMPLETE" then
-		-- Sparkles around the finished part.
 		local k = (t // 200) % 4
 		gfx.setColor(BLACK)
-		local spots = { { px - 6, bedY - 20 }, { px + partW + 4, bedY - 26 }, { px + 10, bedY - partH - 8 }, { px + partW, bedY - 8 } }
+		local spots = { { px - 6, bedY - 18 }, { px + partW + 5, bedY - 24 }, { px + 12, bedY - partH - 6 }, { px + partW + 2, bedY - 6 } }
 		for i, p in ipairs(spots) do
 			if (i + k) % 2 == 0 then
 				gfx.drawLine(p[1] - 3, p[2], p[1] + 3, p[2])
@@ -385,14 +375,13 @@ function Sprites.printer(x, y, st, t, opts)
 			end
 		end
 	elseif st == "IDLE" then
-		-- Sleepy z's float up from the parked toolhead.
 		local s = (t // 60) % 40
-		local zx = tx + 14 + floor(sin(t / 400) * 2)
+		local zx = tx + 16 + floor(sin(t / 400) * 2)
 		if s < 30 then Text.draw("z", zx, th - 6 - s // 3, { color = "black" }) end
 		if s > 10 then Text.draw("Z", zx + 6, th - 12 - (s - 10) // 3, { color = "black" }) end
 	elseif st == "OFFLINE" then
 		pat("light25", x, y, 100, 104)
-		Text.draw("?", x + 47, y + 40, { color = "black", scale = 2 })
+		Text.draw("?", x + 44, y + 36, { color = "black", scale = 3 })
 	end
 	gfx.setColor(BLACK)
 end

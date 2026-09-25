@@ -209,7 +209,7 @@ function QueueScreen:drawRow(j, x, y, w, selected, lifted)
 	local tag = Job.STATUS_TAG[j.status] or "?"
 	local solid = j.status == "PRINTING" or j.status == "FAILED"
 	Draw.tag(tag, x + 12, y, solid, lifted and Draw.bgColor() or fg)
-	Text.draw(U.truncate(j.name, 20), x + 40, y + 1, { color = ink })
+	Text.draw(U.truncate(j.name, 18), x + 44, y + 1, { color = ink })
 	local right = U.fmtDuration(j.estMinutes * 60)
 	Text.draw(right, x + w - 4, y + 1, { color = ink, align = "right" })
 	-- Priority pips and warnings.
@@ -276,7 +276,7 @@ function QueueScreen:draw()
 	for i, row in self.list:visible() do
 		local ry = y + 10 + row * 19
 		if self.hasNew and i == 1 then
-			Text.draw("+ NEW JOB", x + 40, ry + 1)
+			Text.draw("+ NEW JOB", x + 48, ry + 1)
 			if self.list.sel == 1 then Draw.cursor(x + 14, ry + 2) end
 		else
 			local j = self.jobs[i - (self.hasNew and 1 or 0)]

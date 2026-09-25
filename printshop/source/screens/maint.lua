@@ -139,10 +139,10 @@ function MaintScreen:draw()
 		local ch = string.sub(odo, i, i)
 		if ch ~= "." then
 			gfx.setColor(Draw.fgColor())
-			gfx.drawRect(ox - 2, 26, 12, 17)
+			gfx.drawRect(ox - 2, 26, 15, 18)
 		end
 		Text.draw(ch, ox, 29, { scale = ch == "." and 1 or 2 })
-		ox = ox + (ch == "." and 6 or 14)
+		ox = ox + (ch == "." and 7 or 16)
 	end
 	local ps = self.printer.stats
 	Text.draw(string.format("%d PRINTS  %s", ps.prints, U.fmtGrams(ps.grams)), 388, 30, { align = "right" })
@@ -157,7 +157,9 @@ function MaintScreen:draw()
 			local name = U.truncate(t.name, 18)
 			Text.draw((st.due and FontData.icon.warn or (st.soon and "!" or " ")) .. " " .. name, 24, y)
 			local barX = 160
-			Draw.bar(barX, y + 1, 90, 8, math.min(1, st.frac), { pattern = st.due and nil or (st.soon and "gray50" or "light25") })
+			local barPattern = nil
+			if not st.due then barPattern = st.soon and "gray50" or "light25" end
+			Draw.bar(barX, y + 1, 90, 8, math.min(1, st.frac), { pattern = barPattern })
 			if not t.enabled then Text.draw("OFF", barX + 45, y, { align = "center" }) end
 			Text.draw(U.truncate(Maint.fmtNext(st), 20), 384, y, { align = "right" })
 			Text.draw("LAST " .. (t.lastAt > 0 and U.fmtRelDays(t.lastAt) or "NEVER"), 36, y + 9)
