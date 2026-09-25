@@ -91,7 +91,7 @@ function Store.save(force)
 end
 
 function Store.update(dtMs)
-	if not Store.dirty then return end
+	if not Store.dirty or Store.readOnly then return end
 	Store.sinceSave = Store.sinceSave + dtMs
 	if Store.sinceSave >= Store.AUTOSAVE_MS then
 		Store.save()

@@ -98,8 +98,9 @@ function CalService.save(procId, key, fields, notes, makeRecommended)
 
 	local touchedJobs = 0
 	-- Only temperature results change spools and queued jobs.
+	-- SAVE ONLY (makeRecommended ~= true) stores results without pushing.
 	local temps = fields.nozzleTemp ~= nil or fields.bedTemp ~= nil
-	if p.recommended and temps then
+	if makeRecommended == true and p.recommended and temps then
 		for _, s in ipairs(Store.data.spools) do
 			if s.material == p.material and (p.manufacturer == "ANY" or s.manufacturer == p.manufacturer) then
 				if fields.nozzleTemp then s.favNozzle = fields.nozzleTemp end

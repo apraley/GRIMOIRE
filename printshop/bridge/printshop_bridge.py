@@ -50,7 +50,8 @@ def material_of(tray_type):
 def normalize_bambu(report):
     """Bambu `print` report -> bridge schema 1 (same logic as the Lua mapper)."""
     r = report.get("print", report)
-    state = BAMBU_STATE.get(str(r.get("gcode_state", "")).upper(), "IDLE")
+    # No gcode_state yet means "unknown" (OFFLINE), never IDLE.
+    state = BAMBU_STATE.get(str(r.get("gcode_state", "")).upper(), "OFFLINE")
     if state == "PRINTING" and r.get("stg_cur") in (2, 7):
         state = "HEATING"
     pct = float(r.get("mc_percent") or 0)

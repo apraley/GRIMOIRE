@@ -117,7 +117,8 @@ function Queue.retry(j)
 	j.status = "QUEUED"
 	j.completedAt = 0
 	j.archived = false
-	Queue.applyProfile(j, true)
+	-- Re-profile unless the temperatures were set by hand.
+	Queue.applyProfile(j, not j.manualTemps)
 	Store.markDirty()
 	Events.emit("job.retry", { job = j })
 	return j

@@ -137,7 +137,7 @@ function CalibRunScreen:update(dtMs)
 		if Input.a() then
 			Menu.open({ title = "SAVE RESULTS", items = {
 				{ label = "SAVE + RECOMMEND", hint = "New jobs and spool favourites use it.", action = function() self:save(true) end },
-				{ label = "SAVE ONLY", action = function() self:save(nil) end },
+				{ label = "SAVE ONLY", hint = "Keeps the results; jobs and spools are not changed.", action = function() self:save(nil) end },
 				{ label = "ADD A NOTE", action = function()
 					TextEntry.open("NOTE", self.notes, function(t) self.notes = t end, 60)
 				end },

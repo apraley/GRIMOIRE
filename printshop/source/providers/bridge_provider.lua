@@ -55,7 +55,7 @@ end
 ---------------------------------------------------------------------------
 -- HTTP plumbing: one request in flight, body accumulated from callbacks.
 
-function LocalBridgeProvider:request(method, path, body, onDone)
+function LocalBridgeProvider:request(method, path, body, onDone, label)
 	if self.inflight then return false, "BUSY" end
 	if not self:networkAvailable() then return false, "NO NETWORK API (NEEDS OS 2.7+)" end
 	local host = self:host()
@@ -64,7 +64,7 @@ function LocalBridgeProvider:request(method, path, body, onDone)
 	local port = self.printer.port or 8787
 	local conn = playdate.network.http.new(host, port, false, "PRINT SHOP reads printer status from your local bridge.")
 	if conn == nil then return false, "NETWORK ACCESS DENIED" end
-	local req = { conn = conn, buf = {}, started = Clock.ms(), done = false, onDone = onDone }
+	local req = { conn = conn, buf = {}, started = Clock.ms(), done = false, onDone = onDone, label = label }
 	self.inflight = req
 
 	local function finish(err)
@@ -117,14 +117,31 @@ end
 -- polling
 
 function LocalBridgeProvider:update(dtMs)
+	if self:host() == "" then
+		self.status = { state = "OFFLINE", online = false, message = "SET BRIDGE HOST IN SETTINGS" }
+		return
+	end
 	-- Wake the Wi-Fi radio early; it otherwise connects on first use.
 	if not self.radioRequested and self:networkAvailable() and playdate.network.setEnabled then
 		self.radioRequested = true
-		playdate.network.setEnabled(true)
+		self.radioWaitMs = 0
+		-- Associating with the access point can take 10s+: hold the first
+		-- poll until the radio reports in (or 15s pass).
+		playdate.network.setEnabled(true, function(err)
+			self.radioReady = true
+			if err then self:markOffline("WI-FI: " .. tostring(err)) end
+		end)
 	end
-	if self.queued and not self.inflight then
-		local send = self.queued
-		self.queued = nil
+	if self.radioRequested and not self.radioReady then
+		self.radioWaitMs = self.radioWaitMs + dtMs
+		if self.radioWaitMs < 15000 then
+			self.status = { state = "OFFLINE", online = false, message = "WAKING WI-FI..." }
+			return
+		end
+		self.radioReady = true
+	end
+	if self.queued and #self.queued > 0 and not self.inflight then
+		local send = table.remove(self.queued, 1)
 		local ok, err = send()
 		if not ok then self:emit({ type = "log", text = "COMMAND FAILED: " .. tostring(err) }) end
 		return
@@ -135,6 +152,7 @@ function LocalBridgeProvider:update(dtMs)
 			self.inflight = nil
 			req.done = true
 			pcall(req.conn.close, req.conn)
+			if req.label then self:emit({ type = "log", text = req.label .. " FAILED: TIMEOUT" }) end
 			self:markOffline("TIMEOUT")
 		end
 		return
@@ -145,7 +163,16 @@ function LocalBridgeProvider:update(dtMs)
 	if self.pollMs < interval then return end
 	self.pollMs = 0
 	local ok, err = self:request("GET", self:statusPath(), nil, function(data, e)
-		if e then self:markOffline(e) else self:ingest(data) end
+		if e then
+			self:markOffline(e)
+		else
+			-- A malformed document must never crash the game.
+			local good, why = pcall(self.ingest, self, data)
+			if not good then
+				print("PRINT SHOP: bad bridge data: " .. tostring(why))
+				self:markOffline("BAD DATA FROM BRIDGE")
+			end
+		end
 	end)
 	if not ok then self:markOffline(err) end
 end
@@ -170,8 +197,8 @@ function LocalBridgeProvider:ingest(doc)
 	self.spools = norm.spools
 	self:sampleTemps()
 	for _, ev in ipairs(norm.events or {}) do
-		if (ev.seq or 0) > self.lastEventSeq and ev.type == "log" then
-			self.lastEventSeq = ev.seq or self.lastEventSeq
+		if type(ev) == "table" and U.int(ev.seq, 0) > self.lastEventSeq and ev.type == "log" then
+			self.lastEventSeq = U.int(ev.seq, self.lastEventSeq)
 			self:emit({ type = "log", text = U.upper(tostring(ev.text or "")) })
 		end
 	end
@@ -182,6 +209,13 @@ end
 -- state and job are persisted, so a print that finished while PRINT SHOP was
 -- closed is still reported on the first poll after launch.
 function LocalBridgeProvider:deriveEvents(state)
+	-- OFFLINE says nothing about the print: keep the last real state so a
+	-- PRINTING -> (offline) -> COMPLETE sequence still reports completion.
+	if state == "OFFLINE" then return end
+	if not self.everOnline then
+		self.everOnline = true
+		self:emit({ type = "online" })
+	end
 	local prev = self.lastState
 	local prevJob = self.lastJobName
 	self.lastState = state
@@ -189,6 +223,7 @@ function LocalBridgeProvider:deriveEvents(state)
 	if prev == nil or prev == state then return end
 	self:emit({ type = "state", from = prev, to = state })
 	local j = self.job or { name = prevJob }
+	if j.name == nil then j = { jobId = j.jobId, name = prevJob, grams = j.grams } end
 	local p = self.progress
 	local wasActive = prev == "PRINTING" or prev == "PAUSED" or prev == "HEATING"
 	if wasActive and state == "COMPLETE" then
@@ -207,18 +242,23 @@ end
 local function numOr(v, d) return U.num(v, d) end
 
 -- Bridge schema 1 -> provider tables. Subclasses override for other shapes.
+local function tbl(x) return type(x) == "table" and x or {} end
+
 function LocalBridgeProvider:normalize(doc)
-	local t = doc.temps or {}
-	local pr = doc.progress or {}
+	doc = tbl(doc)
+	local t = tbl(doc.temps)
+	local pr = tbl(doc.progress)
 	local job = nil
 	if type(doc.job) == "table" and doc.job.name then
 		job = { jobId = doc.job.id, name = U.upper(tostring(doc.job.name)), material = doc.job.material or "OTHER",
 			color = U.upper(doc.job.color or ""), grams = numOr(doc.job.grams, 0) }
 	end
 	local slots = {}
-	local sp = doc.spools or {}
-	for i, s in ipairs(sp.slots or {}) do
-		slots[#slots + 1] = { slot = s.slot or i, material = s.material or "", color = s.color or "", pct = numOr(s.pct, 0) }
+	local sp = tbl(doc.spools)
+	for i, s in ipairs(tbl(sp.slots)) do
+		if type(s) == "table" then
+			slots[#slots + 1] = { slot = U.int(s.slot, i), material = U.str(s.material, ""), color = U.str(s.color, ""), pct = numOr(s.pct, 0) }
+		end
 	end
 	return {
 		state = U.oneOf(doc.state, Enums.PRINTER_STATES, "OFFLINE"),
@@ -230,7 +270,7 @@ function LocalBridgeProvider:normalize(doc)
 			remainingSec = U.int(pr.remainingSec, 0) },
 		job = job,
 		spools = { mode = sp.mode or "external", active = sp.active, slots = slots },
-		events = doc.events,
+		events = tbl(doc.events),
 	}
 end
 
@@ -249,10 +289,11 @@ function LocalBridgeProvider:post(path, body, label)
 			if e then self:emit({ type = "log", text = label .. " FAILED: " .. e })
 			else self:emit({ type = "log", text = label .. " SENT" }) end
 			self.pollMs = LocalBridgeProvider.POLL_MS   -- refresh status right away
-		end)
+		end, label)
 	end
 	if self.inflight then
-		self.queued = send
+		self.queued = self.queued or {}
+		self.queued[#self.queued + 1] = send
 		self:emit({ type = "log", text = label .. " QUEUED" })
 		return true
 	end

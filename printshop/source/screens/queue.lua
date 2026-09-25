@@ -47,6 +47,7 @@ end
 function QueueScreen:actions(j)
 	local items = {}
 	local live = Printing.isLive(j)
+	local busy = Printing.isBusy(j)
 	local pf = Store.data.pendingFailure
 	local pending = pf ~= nil and pf.jobId == j.id
 	if pending then
@@ -92,7 +93,16 @@ function QueueScreen:actions(j)
 		Toast.show("COPIED " .. c.name, "check")
 		self:refresh()
 	end }
-	if not live and not pending and j.status ~= "COMPLETE" and not j.archived then
+	if busy and not live then
+		items[#items + 1] = { label = "RETURN TO QUEUE", hint = "Not on this printer now. Its printer will still report it.",
+			action = function()
+				Confirm("TAKE " .. U.truncate(j.name, 14) .. " OFF THE PRINTER?", function()
+					Queue.setStatus(j, "QUEUED")
+					self:refresh()
+				end)
+			end }
+	end
+	if not busy and not pending and j.status ~= "COMPLETE" and not j.archived then
 		items[#items + 1] = { label = "MARK COMPLETE", hint = "Printed off the record: logs filament + history.",
 			action = function()
 				Confirm("LOG " .. U.truncate(j.name, 16) .. " DONE?", function()
@@ -111,7 +121,7 @@ function QueueScreen:actions(j)
 		items[#items + 1] = { label = "DELETE FOREVER", action = function()
 			Confirm("DELETE " .. U.truncate(j.name, 18) .. "?", function() Queue.remove(j) self:refresh() end)
 		end }
-	elseif not live then
+	elseif not busy then
 		items[#items + 1] = { label = "ARCHIVE", action = function() Queue.archive(j, true) self:refresh() end }
 	end
 	if j.project ~= "" then

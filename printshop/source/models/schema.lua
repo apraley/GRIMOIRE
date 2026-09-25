@@ -12,13 +12,15 @@
 --   v3  Failures folded into history (`outcome`, `cause`); `failures` removed.
 --   v4  Maintenance gets independent hour/day intervals; `archived` flag on
 --       jobs; calibration profiles keyed printer|material|manufacturer.
+--   v5  Non-temperature calibration fields use nil (not 0) for "not
+--       calibrated"; jobs carry `manualTemps`.
 --
 -- To add v5: bump Schema.CURRENT, append Schema.migrations[5], and extend
 -- Schema.repair() for any new sections. Migrations must be idempotent-safe on
 -- partially-migrated data because a crash mid-save can leave odd shapes.
 
 Schema = {
-	CURRENT = 4,
+	CURRENT = 5,
 	migrations = {},
 }
 
@@ -113,6 +115,40 @@ Schema.migrations[4] = function(d)
 		end
 	end
 	d.calibrations = new
+	return d
+end
+
+Schema.CAL_ZERO_FIELDS = { "flowRatio", "retractLength", "retractSpeed", "xyScale", "zScale", "tolerance", "zOffset" }
+
+Schema.migrations[5] = function(d)
+	d.schema = 5
+	-- Zeros used to mean "not calibrated". Keep a zero only if some stored
+	-- run actually produced it (a real 0.00 Z offset, say).
+	local measured = {}
+	for _, r in ipairs(U.asList(d.calibRuns)) do
+		if type(r) == "table" and type(r.results) == "table" then
+			for k, v in pairs(r.results) do
+				if v == 0 then measured[tostring(r.key) .. "#" .. k] = true end
+			end
+		end
+	end
+	if type(d.calibrations) == "table" then
+		for key, p in pairs(d.calibrations) do
+			if type(p) == "table" then
+				for _, f in ipairs(Schema.CAL_ZERO_FIELDS) do
+					if p[f] == 0 and not measured[tostring(p.key or key) .. "#" .. f] then p[f] = nil end
+				end
+			end
+		end
+	end
+	-- Hand-set temps: no profile and not the material default.
+	for _, j in ipairs(U.asList(d.jobs)) do
+		if type(j) == "table" and j.manualTemps == nil then
+			local info = Enums.materialInfo(j.material)
+			local n = tonumber(j.nozzleTemp) or 0
+			j.manualTemps = (j.profileKey == nil or j.profileKey == "") and n > 0 and n ~= info.nozzle
+		end
+	end
 	return d
 end
 

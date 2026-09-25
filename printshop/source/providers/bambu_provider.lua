@@ -58,7 +58,10 @@ end
 -- ({ print = {...} }) or the inner object.
 function BambuProvider.mapReport(doc)
 	local r = doc.print or doc
-	local state = BambuProvider.STATE_MAP[U.upper(r.gcode_state or "")] or "IDLE"
+	-- No gcode_state yet (bridge just restarted, MQTT not in) is "unknown",
+	-- not IDLE: IDLE would look like the print vanished.
+	if type(r) ~= "table" then r = {} end
+	local state = BambuProvider.STATE_MAP[U.upper(tostring(r.gcode_state or ""))] or "OFFLINE"
 	-- Heating shows up as RUNNING with stage "heating" on some firmware.
 	local stg = tonumber(r.stg_cur)
 	if state == "PRINTING" and (stg == 2 or stg == 7) then state = "HEATING" end
@@ -79,12 +82,14 @@ function BambuProvider.mapReport(doc)
 		local unit = ams.ams[1]
 		if type(unit) == "table" and type(unit.tray) == "table" then
 			for i, tray in ipairs(unit.tray) do
-				slots[#slots + 1] = {
-					slot = (tonumber(tray.id) or (i - 1)) + 1,
-					material = material(tray.tray_type),
-					color = tray.tray_color or "",
-					pct = U.clamp(U.num(tray.remain, 0), 0, 100),
-				}
+				if type(tray) == "table" then
+					slots[#slots + 1] = {
+						slot = (tonumber(tray.id) or (i - 1)) + 1,
+						material = material(tray.tray_type),
+						color = tostring(tray.tray_color or ""),
+						pct = U.clamp(U.num(tray.remain, 0), 0, 100),
+					}
+				end
 			end
 		end
 		local now = tonumber(ams.tray_now)

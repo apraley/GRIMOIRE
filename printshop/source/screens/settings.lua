@@ -84,7 +84,11 @@ function SettingsScreen:buildForm()
 			set = function(v) set.sound = v Store.markDirty() end },
 		{ label = "SAVE NOW", kind = "action", run = function()
 			App.saveAll()
-			Toast.show("SAVED (" .. Store.data.meta.saves .. " SAVES)", "check")
+			if Store.readOnly then
+				Toast.show("READ-ONLY: SAVE IS FROM A NEWER VERSION", "warn")
+			else
+				Toast.show("SAVED (" .. Store.data.meta.saves .. " SAVES)", "check")
+			end
 		end },
 		{ label = "RESET TO DEMO SHOP", kind = "action", run = function()
 			Confirm("ERASE ALL DATA + LOAD DEMO?", function() App.resetData(false) end, nil, "ERASE", "CANCEL")

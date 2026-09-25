@@ -23,6 +23,8 @@ local function prof(ctx, field, fallback)
 	local v = ctx.profile and ctx.profile[field]
 	if v == nil then return fallback end
 	if v == 0 and (field == "nozzleTemp" or field == "bedTemp") then return fallback end
+	-- Scales and flow can never be zero or negative: treat as unset.
+	if v <= 0 and (field == "xyScale" or field == "zScale" or field == "flowRatio") then return fallback end
 	return v
 end
 

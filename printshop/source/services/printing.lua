@@ -105,7 +105,10 @@ end
 
 -- Rebuild after the provider kind of the active printer changed.
 function Printing.reload()
-	if Printing.provider then Printing.provider:shutdown() end
+	if Printing.provider then
+		Printing.persist()
+		Printing.provider:shutdown()
+	end
 	return Printing.init()
 end
 
@@ -138,13 +141,19 @@ function Printing.jobForProvider(pjob)
 	if j then return j end
 	local name = U.upper(pjob.name or "")
 	if name == "" then return nil end
+	-- Only this printer's jobs; prefer the one already printing, then the
+	-- next in line, then anything else not finished.
+	local printerId = Store.activePrinter().id
+	local rank = { PRINTING = 1, PAUSED = 1, QUEUED = 2, READY = 2, FAILED = 3, IDEA = 3 }
+	local best, bestRank = nil, 99
 	for _, cand in ipairs(Store.data.jobs) do
-		if not cand.archived and cand.status ~= "COMPLETE"
+		if not cand.archived and cand.status ~= "COMPLETE" and cand.printerId == printerId
 			and (U.upper(cand.name) == name or cand.printerJobName == name) then
-			return cand
+			local r = rank[cand.status] or 9
+			if r < bestRank then best, bestRank = cand, r end
 		end
 	end
-	return nil
+	return best
 end
 
 -- A live printer may be running something the queue never sent (started
@@ -189,6 +198,8 @@ function Printing.handle(ev)
 		Events.emit("printer.state", { from = ev.from, to = ev.to })
 	elseif ev.type == "complete" then
 		local j = Printing.jobForProvider({ jobId = ev.jobId, name = ev.name }) or Printing.currentJob()
+		-- Never record the same attempt twice (e.g. it was marked done by hand).
+		if j and j.status == "COMPLETE" and j.completedAt >= j.startedAt then j = nil end
 		if j then
 			Printing.finish(j, "success", {
 				durationSec = ev.durationSec, grams = (ev.grams and ev.grams > 0) and ev.grams or nil,
@@ -198,6 +209,20 @@ function Printing.handle(ev)
 		end
 	elseif ev.type == "failed" then
 		local j = Printing.jobForProvider({ jobId = ev.jobId, name = ev.name }) or Printing.currentJob()
+		-- Only one failure can wait for a cause; an older one (from another
+		-- printer) is logged with what we know so it isn't lost.
+		local old = Store.data.pendingFailure
+		if old and old.jobId ~= (j and j.id) then
+			local oj = old.jobId and Store.job(old.jobId)
+			if oj then
+				Printing.finish(oj, old.cancelled and "cancelled" or "failed", {
+					cause = old.cause or "unknown", notes = "Auto-logged: another failure arrived.",
+					grams = old.grams, preConsumed = old.preConsumed, progress = old.progress,
+					layer = old.layer, durationSec = old.durationSec, nozzleTemp = old.nozzleTemp, bedTemp = old.bedTemp,
+				})
+			end
+			Store.data.pendingFailure = nil
+		end
 		Store.data.pendingFailure = {
 			jobId = j and j.id or nil, printerId = Store.activePrinter().id,
 			reason = ev.reason or "FAILED", cause = ev.cause,
@@ -212,6 +237,9 @@ function Printing.handle(ev)
 		Store.markDirty()
 		Store.save(true)
 		Events.emit("print.error", { job = j, pending = Store.data.pendingFailure })
+	elseif ev.type == "online" then
+		-- A bridge just reported in: now we can tell what's really printing.
+		Printing.reconcile()
 	elseif ev.type == "lost" then
 		-- The printer went idle without us seeing how the job ended.
 		local j = Printing.jobForProvider({ jobId = ev.jobId, name = ev.name }) or Printing.currentJob()
@@ -266,7 +294,10 @@ end
 
 function Printing.canStart(j)
 	if not Job.isStartable(j) then return false, "JOB NOT READY" end
-	if Store.data.pendingFailure then return false, "LOG LAST FAILURE FIRST" end
+	local pf = Store.data.pendingFailure
+	if pf and (pf.printerId == nil or pf.printerId == Store.activePrinter().id) then
+		return false, "LOG LAST FAILURE FIRST"
+	end
 	local p = Printing.provider
 	if not p:capabilities().start then return false, "PRINTER CAN'T START JOBS" end
 	local st = p:getStatus().state
@@ -493,6 +524,13 @@ end
 function Printing.markFailed(j, cause, notes, grams, progress)
 	return Printing.finish(j, "failed", { cause = cause, notes = notes, grams = grams,
 		progress = progress or 0.5, manual = true })
+end
+
+-- True when the queue must not offer manual MARK COMPLETE/FAILED: the job
+-- is (or may still be) on a printer, active or not. Use RETURN TO QUEUE to
+-- take a stuck job back by hand.
+function Printing.isBusy(j)
+	return j.status == "PRINTING" or j.status == "PAUSED"
 end
 
 -- True when j is the job physically on the active provider right now.

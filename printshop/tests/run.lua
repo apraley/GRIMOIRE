@@ -1220,6 +1220,112 @@ test("review: migration and list repair edge cases", function()
 	eq(Store.data.jobs[2].id, "a")
 end)
 
+test("review2: v4 saves drop legacy zero calibration fields, infer manual temps", function()
+	boot({})
+	local doc = json.decode(MOCK.files.printshop)
+	doc.schema = 4
+	local p = doc.calibrations["p1|PLA|ANY"]
+	p.xyScale, p.zScale, p.zOffset, p.flowRatio = 0, 0, 0, 0
+	doc.calibRuns[#doc.calibRuns + 1] = { id = "r99", procedure = "firstlayer", key = "p1|PLA|ANY", at = 1, results = { zOffset = 0 } }
+	local j = doc.jobs[4]
+	j.manualTemps = nil
+	j.profileKey = ""
+	j.nozzleTemp = 251
+	boot({ printshop = json.encode(doc) })
+	eq(Store.loadReport.migratedFrom, 4)
+	local q = CalService.profile("p1|PLA|ANY")
+	eq(q.xyScale, nil)
+	eq(q.flowRatio, nil)
+	eq(q.zOffset, 0, "measured zero kept")
+	eq(Store.job(j.id).manualTemps, true)
+	local dim = CalibDefs.byId.dimension.compute({ x = 20, y = 20, z = 20 }, CalService.context("p1|PLA|ANY"))
+	eq(dim.xyScale, 100)
+end)
+
+test("review2: a job printing on another printer can't be logged twice", function()
+	boot({})
+	Store.settings().demoChaos = false
+	local j = Store.job("j1")
+	Store.printer("p2").provider = "demo"
+	Printing.switchPrinter("p2")
+	ok(Printing.isBusy(j), "still busy while on p1")
+	local hist = #Store.data.history
+	MOCK.advance(3 * 3600)
+	Printing.switchPrinter("p1")               -- fast-forward completes it
+	eq(j.status, "COMPLETE")
+	eq(#Store.data.history, hist + 1)
+	-- A duplicate completion event is ignored.
+	Printing.handle({ type = "complete", jobId = j.id, grams = 18 })
+	eq(#Store.data.history, hist + 1)
+end)
+
+test("review2: bridge name matches stay on the active printer; offline gaps keep state", function()
+	boot({})
+	local other = Queue.add({ name = "CLIP", printerId = "p2", status = "QUEUED" })
+	local printer = Store.activePrinter()
+	printer.provider = "bridge"
+	printer.host = "10.0.0.2"
+	Printing.reload()
+	local p = Printing.provider
+	local function doc(state, pct) return { state = state, temps = {}, progress = { pct = pct or 10 }, job = { name = "CLIP" } } end
+	p:ingest(doc("PRINTING"))
+	Printing.drain()
+	eq(other.status, "QUEUED", "p2's CLIP untouched")
+	local mine = U.find(Store.data.jobs, function(x) return x.name == "CLIP" and x.printerId == printer.id end)
+	ok(mine and mine.status == "PRINTING", "adopted for p1")
+	p:ingest({ state = "OFFLINE" })
+	p:ingest(doc("COMPLETE", 100))
+	Printing.drain()
+	eq(mine.status, "COMPLETE", "completion survives an OFFLINE blip")
+	-- Malformed documents don't crash.
+	for _, bad in ipairs({ { temps = 5 }, { events = { 3 } }, { spools = { slots = { 7 } } }, { progress = "x" } }) do
+		local good = pcall(p.ingest, p, bad)
+		ok(good, "ingest survives bad doc")
+	end
+	-- An empty Bambu report is unknown, not idle.
+	eq(BambuProvider.mapReport({}).state, "OFFLINE")
+	printer.provider = "demo"
+	Printing.reload()
+end)
+
+test("review2: switching connection mid-print reconciles once the bridge reports", function()
+	boot({})
+	local j = Store.job("j1")
+	local printer = Store.activePrinter()
+	printer.provider = "bridge"
+	printer.host = "10.0.0.2"
+	Printing.reload()
+	eq(j.status, "PRINTING", "unknown while offline")
+	Printing.provider:ingest({ state = "IDLE", temps = {}, progress = {} })
+	Printing.drain()
+	eq(j.status, "QUEUED", "returned to queue once the bridge says idle")
+	printer.provider = "demo"
+	Printing.reload()
+end)
+
+test("review2: a second failure settles the first; retry keeps manual temps", function()
+	boot({})
+	local a = Store.job("j1")
+	Printing.handle({ type = "failed", jobId = a.id, reason = "X", cause = "clog", progress = 0.5 })
+	local b = Queue.add({ name = "B", status = "PRINTING", spoolId = "s2" })
+	local hist = #Store.data.history
+	Printing.handle({ type = "failed", jobId = b.id, reason = "Y", cause = "spaghetti", progress = 0.2 })
+	eq(#Store.data.history, hist + 1, "first failure recorded")
+	eq(Store.data.history[#Store.data.history].jobId, a.id)
+	eq(Store.data.pendingFailure.jobId, b.id)
+	Printing.resolvePending({ cause = "spaghetti" })
+	b.nozzleTemp, b.bedTemp, b.manualTemps = 251, 81, true
+	Queue.retry(b)
+	eq(b.nozzleTemp, 251)
+	eq(b.manualTemps, true)
+	-- SAVE ONLY on an existing recommended profile pushes nothing.
+	local q = Queue.add({ name = "Q", spoolId = "s1" })
+	local before = q.nozzleTemp
+	local _, _, touched = CalService.save("temptower", "p1|PLA|BAMBU", { nozzleTemp = 205 }, "", nil)
+	eq(touched, 0)
+	eq(q.nozzleTemp, before)
+end)
+
 ---------------------------------------------------------------------------
 
 print("")

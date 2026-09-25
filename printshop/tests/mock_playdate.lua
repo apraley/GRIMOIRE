@@ -208,6 +208,7 @@ rawset(playdate.sound, "getCurrentTime", function() return MOCK.ms / 1000 end)
 
 -- network: present (SDK 2.7+), but no server answers in tests.
 rawset(playdate.network.http, "new", function() return nil end)
+rawset(playdate.network, "setEnabled", function(flag, cb) if flag and cb then cb(nil) end end)
 
 ---------------------------------------------------------------------------
 -- JSON + datastore (roundtrip through text, like the device)
