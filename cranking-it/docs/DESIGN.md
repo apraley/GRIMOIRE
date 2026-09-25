@@ -18,7 +18,7 @@ its neighbours.
 | 9 | SAILBOAT WINCH | the winch handle | two-speed winch hauling/easing a sheet under load; sail aerodynamics, heel | load-dependent mechanical advantage; furious grinding at tacks |
 | 10 | THE WELL | the windlass | gravity-driven rope drum; you restrain the descent, grip can slip; haul heavy water | the load drives *you*; braking a fall; jiggling to fill |
 | 11 | CLOCKMAKER | turning the train / winding the mainspring | gear-train ratios computed from tooth counts; mainspring torque with click | the crank tests a mechanism you built; ratio reasoning |
-| 12 | HAND-CRANKED CIVILIZATION | the wheel of history | each turn = one generation whose length depends on era; pushing fast breeds unrest | speed is a *political* variable; history has friction |
+| 12 | HAND-CRANKED CIVILIZATION | the wheel of history, divided into six sectors | each turn = one generation (era-dependent years); dwell time in each 60° sector (FIELDS, FORGE, SWORD, TEMPLE, ARTS, SAILS) steers that generation's effort | *uneven, deliberate* motion within a turn — linger here, hurry there; rushing whole turns breeds unrest |
 | 13 | ONE BILLION YEARS | geological time | crank speed maps logarithmically to time scale (years → megayears) | the rate itself is the instrument; contemplative |
 
 ---
@@ -314,6 +314,12 @@ its neighbours.
   from time, accuracy, and no broken springs. Endless: clocks keep coming.
 
 ## 12. HAND-CRANKED CIVILIZATION
+
+> **Revised in the distinctness pass.** The original crank model rewarded a
+> steady tempo with low variance — the same hand motion as PROJECTIONIST.
+> The wheel is now split into six sectors and *dwell time* within each turn
+> allocates the generation's effort; unevenness within a turn is the skill.
+> The spec below is otherwise unchanged.
 
 * A 1-bit map of a small continent (tiles/regions with terrain: coast,
   plains, forest, hills, mountains, rivers), settlements as dots that grow

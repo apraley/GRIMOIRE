@@ -2,24 +2,30 @@
 --
 -- The crank is the Wheel of History, and history has friction.
 --
---   * Every 30 degrees of forward crank is a detent (a "season"): one
---     simulation substep. Twelve of them (one full turn) make a generation,
---     whose length in years depends on the era (Stone Age 250 years per
---     turn ... Modern 6). Idle crank = history waits for the hand.
---   * Crank SPEED is a political variable. Each era and government has a
---     tempo band: below it the realm stagnates, above it history is rushed
---     and breeds unrest (revolts, collapse). Inside it, faster = bolder
---     progress, and a STEADY hand (low speed variance) grows culture and
---     earns HANDS (influence).
---   * Cranking BACKWARD never rewinds time: it is friction - conservatism.
---     Unrest cools and order rises, but knowledge erodes a little.
---   * Events lock the wheel with a ratchet (the crank clicks against a
---     pawl) until you intervene: 2-3 choices with trade-offs.
+--   * One full turn is one generation, whose length in years depends on the
+--     era (Stone Age 250 years per turn ... Modern 10). Every 30 degrees is
+--     a season: one simulation substep. Idle crank = history waits.
+--   * THE WHEEL HAS SECTORS. Its six 60-degree sectors are the spheres of
+--     life: FIELDS, FORGE, SWORD, TEMPLE, ARTS, SAILS (sector 1 starts where
+--     the crank was when the run began; the pointer on screen is the wheel).
+--     Each season's effort goes to the sector it belongs to, weighted by
+--     DWELL TIME: linger in a sector (or pause inside it) and the generation
+--     pours itself into that sphere; whip through and it gets almost
+--     nothing. You steer history by the uneven rhythm WITHIN each turn.
+--   * Focus decays slowly, so neglect has consequences over generations:
+--     starved FIELDS = famine, FORGE = stagnation, SWORD = neighbours prey
+--     on you, TEMPLE = unrest, ARTS = no lore and a dark-age risk, SAILS =
+--     no discovery. Over-feeding costs too: SWORD breeds wars, FORGE smoke
+--     and warming, TEMPLE stagnation and theocracy.
+--   * Spinning WHOLE generations too fast (total time per turn) breeds
+--     unrest and collapse. Backward cranking never rewinds: it is friction
+--     (order up, unrest down, knowledge erodes) and the lost ground must be
+--     turned again before history moves on.
+--   * Events drop a pawl into the wheel until you intervene (2-3 choices).
 -- The simulation runs per region (population, food, disease, devastation)
--- and per polity (government, wars, conquest), with six technology tracks,
--- climate cycles, exploration of offshore islands, culture and faith. A
--- civilization can last thousands of years, fall into a dark age and
--- recover - or fall for good. Work per frame is bounded: at most four
+-- and per polity (government, wars, conquest; the largest polity is the
+-- realm your hand favours), with six technology tracks, climate, islands
+-- to discover, culture and faith. Work per frame is bounded: at most four
 -- substeps, a fixed number of regions and polities.
 
 local gfx <const> = playdate.graphics
@@ -40,6 +46,19 @@ local SUBDEG <const> = 30
 local MAX_SUBSTEPS <const> = 4
 local STANDARD_END <const> = 5000
 
+local FIELDS <const>, FORGE <const>, SWORD <const>, TEMPLE <const>, ARTS <const>, SAILS <const> = 1, 2, 3, 4, 5, 6
+local SECTOR_NAMES <const> = { "FIELDS", "FORGE", "SWORD", "TEMPLE", "ARTS", "SAILS" }
+local NEGLECT_TEXT <const> = {
+  "The fields go untended. Granaries echo.",
+  "The forges are cold. Nothing new is made.",
+  "The armouries rust. The neighbours notice.",
+  "The temples stand empty. The crowds grow angry.",
+  "No songs, no books. Memory thins.",
+  "The harbours silt up. Nobody looks to sea.",
+}
+local FOCUS_DECAY <const> = 0.97
+local DWELL_MIN <const>, DWELL_MAX <const> = 0.03, 3.0
+local STARVED <const> = 0.4
 local SEA <const>, PLAIN <const>, FOREST <const>, HILL <const>, MOUNT <const> = 0, 1, 2, 3, 4
 local AGRI <const>, METAL <const>, SAIL <const>, MEDIC <const>, LETTERS <const>, INDUSTRY <const> = 1, 2, 3, 4, 5, 6
 
@@ -74,9 +93,9 @@ local Civ = Machine.define({
   number = 12,
   title = "HAND-CRANKED CIVILIZATION",
   tagline = "History has friction.",
-  description = "Each turn of the crank is a generation. Rush history and it revolts; stall it and it rots. Keep a steady hand for 5000 years.",
-  howto = "Crank to turn the Wheel of History: one turn = one generation. Keep the TEMPO needle in the steady band. Backward = friction (order up, progress down). Events lock the wheel: UP/DOWN, A. B spends a HAND to calm the realm.",
-  controls = { { "CRANK", "wheel of history" }, { "B", "steady hand" }, { "A", "chronicle / decide" }, { "DPAD", "choose" } },
+  description = "Each turn of the crank is a generation. Linger in the sectors you favour - fields, forge, sword, temple, arts, sails - for 5000 years.",
+  howto = "One crank turn = one generation. The wheel has 6 sectors: go SLOW where you want effort, FAST past the rest. Starved spheres fail. Spin whole turns too fast = unrest. Backward = friction. Events: UP/DOWN, A. B spends a HAND.",
+  controls = { { "CRANK", "linger / hurry" }, { "B", "spend a hand" }, { "A", "chronicle / decide" }, { "DPAD", "choose" } },
   modes = { "tutorial", "standard", "endless" },
   medals = { standard = { 2500, 5500, 7000 }, endless = { 4000, 9000, 15000 } },
   scoreLabel = "HISTORY",
@@ -654,9 +673,10 @@ function Civ:newCiv(first)
   self.coldT = 0
   self.cool = 3
   self.grudge = 0
-  self.hands = (self.mode == "tutorial") and 2 or 1
-  self.steadyGens = 0
+  self.hands = (self.mode == "tutorial") and 0 or 1
   self.era = 1
+  for q = 1, 6 do self.focusI[q] = 0.3 self.focus[q] = 1 self.starveG[q] = 0 end
+  self.artsAcc = 0
   self.famineN = 0
   self.plagueN = 0
   self.bordersDirty = true
@@ -667,20 +687,29 @@ function Civ:enter(params)
   self.t = 0
   self.year = 0
   self.gen = 0
-  self.wheel = 0
+  self.net = 0          -- the wheel's angle: accumulated crank degrees
+  self.hiSeason = 0     -- seasons completed (high-water mark)
+  self.seasonT = 0      -- dwell in the current season (seconds)
   self.backAcc = 0
+  self.focusI = { 0.3, 0.3, 0.3, 0.3, 0.3, 0.3 }
+  self.focus = { 1, 1, 1, 1, 1, 1 }
+  self.starveG = { 0, 0, 0, 0, 0, 0 }
+  self.durRing = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
+  self.durIdx = 0
+  self.artsAcc = 0
+  self.handsEarned = 0
+  self.famineSeasons = 0
+  self.conquests = 0
+  self.lastSector = 1
   self.falls = 0
   self.yearsBanked = 0
   self.peakPop = 0
   self.statues = 0
   self.eventsDone = 0
   self.handsUsed = 0
-  self.steadyT = 0
-  self.jitter = 0
   self.rps = 0
   self.wobble = 0
   self.flashHand = 0
-  self.tempoPos = 0
   self.eraFlash = 0
   self.drumT = 0
   self.tickerX = 400
@@ -719,20 +748,20 @@ function Civ:setupCoach()
   self.coach = UI.Coach.new({
     { text = "Turn the crank: the Wheel of History. One full turn is one generation. Turn two.",
       check = function() return s.gen >= 2 end },
-    { text = "Watch TEMPO. Hold a steady pace inside the white STEADY band.",
-      check = function() return s.steadyT >= 2.5 end },
-    { text = "Now crank FAST. Rushed history breeds UNREST.",
+    { text = "The wheel has six sectors. Where you LINGER, the effort goes. Go slow through FIELDS (wheat), fast past the rest.",
+      check = function() return s.focus[FIELDS] >= 2 end },
+    { text = "Now hurry past FIELDS and linger elsewhere. Starve the fields and watch the harvest fail.",
+      enter = function() s.lessonFamine = false end,
+      check = function() if s.famineN > 0 then s.lessonFamine = true end return s.lessonFamine end },
+    { text = "Spin whole turns FAST. Rushed generations breed UNREST.",
       check = function() return s.Un >= 30 end },
     { text = "Crank BACKWARD: friction. Unrest cools, order rises, progress slows.",
       check = function() return s.Un <= 12 and s.backTotal and s.backTotal > 240 end },
     { text = "An event locks the wheel. UP/DOWN to choose, A to decide.",
       enter = function() s:forceEvent("comet") end,
       check = function() return s.eventsDone >= 1 end },
-    { text = "B spends a HAND: the steady hand calms the realm. Try it.",
-      check = function() return s.handsUsed >= 1 end },
-    { text = "Turn steadily for four generations. LORE only grows under a steady hand.",
-      enter = function() s.lessonGen = s.gen s.lessonC = s.C end,
-      check = function() return s.gen >= (s.lessonGen or 0) + 4 and s.C > (s.lessonC or 0) end },
+    { text = "Linger in ARTS (the note) to grow LORE and earn a HAND. Then B spends it.",
+      check = function() return s.handsEarned >= 1 and s.handsUsed >= 1 end },
   }, { x = 4, w = 392, y = 152, h = 46, anchor = "bottom" })
 end
 
@@ -789,7 +818,7 @@ function Civ:eraFor()
   return 1
 end
 
--- tempo band for the current era and government (revs per second)
+-- how fast whole generations may pass (turns per second) before history is rushed
 function Civ:band()
   local e = ERAS[self.era]
   local d = self:dominant()
@@ -828,23 +857,19 @@ function Civ:substep()
   self.year = self.year + years
   local lo, hi = self:band()
   local rps = self.rps
-  local steady = 1 - U.clamp(self.jitter * 2.2, 0, 1)
-  self.steady = steady
-  -- tempo: rushed / steady / stagnant
-  local tempoMul
+  local fo = self.focus
+  local fF, fX, fS, fT, fA, fL = fo[FIELDS], fo[FORGE], fo[SWORD], fo[TEMPLE], fo[ARTS], fo[SAILS]
+  -- whole generations spun too fast: history rushed
   if rps > hi then
     local rush = math.min(3, rps / hi - 1)
-    self.Un = self.Un + 5 * rush * (1 + rush) * dg * 1.0
-    tempoMul = 1.35
-  elseif rps < lo then
-    self.G = math.min(100, self.G + 10 * (1 - rps / lo) * dg)
-    tempoMul = 0.45
-  else
-    tempoMul = 0.65 + 0.7 * (rps - lo) / (hi - lo)
-    self.G = math.max(0, self.G - 5 * dg)
+    self.Un = self.Un + 5 * rush * (1 + rush) * dg
   end
-  -- jerky hands are felt too
-  if steady < 0.5 then self.Un = self.Un + (0.5 - steady) * 3 * dg end
+  -- stagnation: cold forges, or temples that swallow everything
+  if fX < STARVED then self.G = math.min(100, self.G + 8 * (STARVED - fX) / STARVED * dg)
+  elseif fT > 2.5 then self.G = math.min(100, self.G + (fT - 2.5) * 5 * dg)
+  else self.G = math.max(0, self.G - 4 * dg) end
+  -- faith follows the temple
+  self.F = U.clamp(self.F + (fT - 1) * 2 * dg, 0, 100)
 
   -- climate: long cycles, cold spells and industrial warming
   self.K = 0.55 * sin(self.year / 1800 * 6.283 + self.mapSeed % 7) + (self.coldT > 0 and -0.8 or 0)
@@ -855,7 +880,7 @@ function Civ:substep()
   -- regions
   local total = 0
   local famineN, sickN, cities = 0, 0, 0
-  local capMul = (2 + T[AGRI] * 0.5 + T[INDUSTRY] * 1.5) * climate
+  local capMul = (2 + T[AGRI] * 0.5 + T[INDUSTRY] * 1.5) * climate * U.clamp(0.35 + 0.65 * fF, 0.35, 1.7)
   for k = 1, self.NR do
     local p = R.pop[k]
     if p > 0 then
@@ -863,13 +888,10 @@ function Civ:substep()
       if cap < 1 then cap = 1 end
       R.cap[k] = cap
       local g = 0.9 * (1 - R.sick[k])
+      -- more mouths than the harvest can feed: famine
+      R.famine[k] = p > cap * 1.08 or (fF < STARVED and p > cap * 0.85)
       p = p + p * g * (1 - p / cap) * dg
-      if p > cap then
-        p = p - (p - cap) * 0.35 * dg
-        R.famine[k] = p > cap * 1.08
-      else
-        R.famine[k] = false
-      end
+      if p > cap then p = p - (p - cap) * 0.35 * dg end
       if R.famine[k] then famineN = famineN + 1 end
       if R.sick[k] > 0 then
         p = p - p * R.sick[k] * 0.35 * dg
@@ -888,14 +910,14 @@ function Civ:substep()
     end
   end
   self.famineN, self.sickN, self.cities = famineN, sickN, cities
+  if famineN > 0 then self.famineSeasons = self.famineSeasons + 1 end
   self.total = total
   if total > self.peakPop then self.peakPop = total end
 
   -- culture and faith
   local d = self:dominant()
   local gv = GOV[(d > 0) and P.gov[d] or WARLORDS]
-  local tempoGood = (rps >= lo and rps <= hi) and 1 or 0.3
-  self.C = self.C + (0.25 + cities * 0.35 + (self.statueBuilt and 0.6 or 0)) * steady * tempoGood * gv.cult * (self.S / 100) * (self.dark > 0 and 0.3 or 1) * dg
+  self.C = self.C + (0.25 + cities * 0.35 + (self.statueBuilt and 0.6 or 0)) * U.clamp(fA, 0, 3) * gv.cult * (self.S / 100) * (self.dark > 0 and 0.3 or 1) * dg
   -- order and unrest
   local wars = 0
   for p = 1, MAXP do if P.alive[p] and P.war[p] > 0 then wars = wars + 1 end end
@@ -903,29 +925,32 @@ function Civ:substep()
   local target = gv.stab + math.min(12, sqrt(self.C)) - self.Un * 0.45 - wars * 8 - famineN * 4 - sickN * 3 + self.F * 0.08
   self.S = U.clamp(self.S + (target - self.S) * 0.35 * dg, 0, 100)
   self.Un = self.Un + (famineN * 2.5 + wars * 2 + math.max(0, self:aliveCount() == 1 and self.NR > 8 and 0.8 or 0)) * dg
+  -- empty temples anger the crowds; an army fed too much wants a war
+  if fT < STARVED then self.Un = self.Un + 5 * (STARVED - fT) / STARVED * dg end
+  if fS > 2 then self.Un = self.Un + (fS - 2) * 1.5 * dg end
   if self.grudge > 0 then
     local g = math.min(self.grudge, 4 * dg)
     self.grudge = self.grudge - g
     self.Un = self.Un + g
   end
-  -- the pressures of a crowded, ageing world: bolder tempo, more strain;
-  -- every civilization grows restless after its third millennium
+  -- the pressures of a crowded, ageing world; every civilization grows
+  -- restless after its third millennium. The temple calms.
   local age = self.year - (self.ageYear0 or 0)
-  self.Un = self.Un + (0.5 * self.era * (0.4 + 0.8 * math.min(1.5, rps / hi)) + math.max(0, age - 3000) / 450) * dg
-  self.Un = U.clamp(self.Un - (self.S / 100) * 6 * dg, 0, 100)
+  self.Un = self.Un + (0.5 * self.era * 0.8 + math.max(0, age - 3000) / 450) * dg
+  self.Un = U.clamp(self.Un - (self.S / 100) * 6 * U.clamp(0.35 + 0.65 * fT, 0.35, 2) * dg, 0, 100)
 
   -- knowledge
   local popF = U.clamp(0.4 + log(1 + total, 10) / 3, 0.4, 2)
-  local base = 1.9 * ERA_TECH[self.era] * tempoMul * gv.tech * (1 - self.G / 140) * popF * (self.dark > 0 and 0.35 or 1) * dg
+  local base = 1.9 * ERA_TECH[self.era] * U.clamp(0.25 + 0.75 * fX, 0.25, 2.2) * gv.tech * (1 - self.G / 140) * popF * (self.dark > 0 and 0.35 or 1) * dg
   if self.mode == "tutorial" then base = base * 1.3 end
   local grow = growTech
   grow(T, AGRI, base * 1.0)
   grow(T, METAL, base * 0.95 * (T[AGRI] >= 3 and 1 or 0.3))
-  grow(T, SAIL, base * 0.8 * (0.3 + self.coastShare) * (T[METAL] >= 8 and 1 or 0.15))
-  grow(T, LETTERS, base * 0.8 * (T[METAL] >= 10 and 1 or 0.1) * (0.7 + math.min(0.8, self.C / 150)))
+  grow(T, SAIL, base * 0.8 * U.clamp(0.15 + 0.85 * fL, 0.15, 2.5) / U.clamp(0.25 + 0.75 * fX, 0.25, 2.2) * (0.3 + self.coastShare) * (T[METAL] >= 8 and 1 or 0.15))
+  grow(T, LETTERS, base * 0.8 * (0.5 + 0.5 * math.min(2, fA)) * (T[METAL] >= 10 and 1 or 0.1) * (0.7 + math.min(0.8, self.C / 150)))
   grow(T, MEDIC, base * 0.6 * (T[LETTERS] >= 18 and 1 or 0.1))
   grow(T, INDUSTRY, base * 1.1 * ((T[LETTERS] >= 45 and T[METAL] >= 45) and 1 or 0))
-  self.co2 = U.clamp(self.co2 + (T[INDUSTRY] * 0.009 - 0.25) * dg, 0, 100)
+  self.co2 = U.clamp(self.co2 + (T[INDUSTRY] * (0.009 + math.max(0, fX - 1.5) * 0.006) - 0.25) * dg, 0, 100)
 
   -- wars grind on every season
   for p = 1, MAXP do
@@ -951,6 +976,7 @@ function Civ:substep()
     Audio.sfx.bell(990, 0.3)
     Audio.play(Audio.TRIANGLE, 1320, 0.25, 0.4, 0.002, 0.5, 0, 0.3, 0.2)
     self:chronicle(ERAS[eraNow].say)
+    if eraNow >= 6 and not self.industrialYear then self.industrialYear = self.year end
   end
   self:updateLevels()
   self:milestones()
@@ -968,15 +994,25 @@ function Civ:generation()
   local rng = self.rng
   self.gen = self.gen + 1
   Audio.sfx.thunk(0.35)
-  -- hands for a steady generation inside the band
-  local lo, hi = self:band()
-  if (self.steady or 0) > 0.6 and self.rps >= lo and self.rps <= hi then
-    self.steadyGens = self.steadyGens + 1
-    if self.steadyGens >= 7 and self.hands < 5 then
-      self.steadyGens = 0
-      self.hands = self.hands + 1
-      Audio.sfx.coin()
+  self.realm = self:dominant()
+  -- neglect is remembered: a sphere starved for generations complains
+  local fo = self.focus
+  for q = 1, 6 do
+    if fo[q] < STARVED then
+      self.starveG[q] = self.starveG[q] + 1
+      if self.starveG[q] == 3 then self:chronicle(NEGLECT_TEXT[q]) end
+    else
+      self.starveG[q] = 0
     end
+  end
+  -- temples fed beyond reason take the throne
+  if fo[TEMPLE] > 2.8 and self.realm > 0 and P.gov[self.realm] ~= THEOCRACY and rng:chance(0.15) then
+    P.gov[self.realm] = THEOCRACY
+    self:chronicle("The priests of " .. P.name[self.realm] .. " take the throne.")
+  end
+  -- sailors who are listened to find land
+  if fo[SAILS] > 2 and T[SAIL] >= 20 and rng:chance(0.25) then
+    for k = 1, self.NR do if R.isl[k] and not R.known[k] then self:discover(k) break end end
   end
   -- colonisation of neighbouring land
   for k = 1, self.NR do
@@ -1060,7 +1096,7 @@ function Civ:generation()
     end
   end
   -- ships
-  local want = math.min(MAXSHIP, floor(T[SAIL] / 18))
+  local want = math.min(MAXSHIP, floor(T[SAIL] / 18 * U.clamp(self.focus[SAILS], 0.3, 1.6)))
   for s = 1, MAXSHIP do
     if s <= want and not self.shipOn[s] and #self.coastSea > 0 then
       local i = self.coastSea[rng:range(1, #self.coastSea)]
@@ -1110,6 +1146,11 @@ function Civ:politics()
             if front > 0 then break end
           end
           local aggr = math.max(GOV[P.gov[p]].aggr, GOV[P.gov[q]].aggr)
+          if p == self.realm or q == self.realm then
+            -- a well-fed sword looks for wars; a starved one invites them
+            local fS = self.focus[SWORD]
+            aggr = aggr * math.max(U.clamp(0.3 + 0.7 * fS, 0.3, 2.5), fS < STARVED and 1.8 or 0)
+          end
           if front > 0 and rng:chance(0.07 * aggr * (1 + self.Un / 70) * (self.dark > 0 and 1.5 or 1)) then
             P.war[p], P.war[q] = q, p
             P.warT[p], P.warT[q] = 0, 0
@@ -1146,8 +1187,8 @@ function Civ:politics()
         for k = 1, self.NR do
           if R.owner[k] == p then sp = sp + R.pop[k] elseif R.owner[k] == q then sq = sq + R.pop[k] end
         end
-        sp = sp * (0.7 + rng:float() * 0.6) * (1 + (P.gov[p] == EMPIRE and 0.2 or 0))
-        sq = sq * (0.7 + rng:float() * 0.6) * (1 + (P.gov[q] == EMPIRE and 0.2 or 0))
+        sp = sp * (0.7 + rng:float() * 0.6) * (1 + (P.gov[p] == EMPIRE and 0.2 or 0)) * self:swordMul(p)
+        sq = sq * (0.7 + rng:float() * 0.6) * (1 + (P.gov[q] == EMPIRE and 0.2 or 0)) * self:swordMul(q)
         local win = sp / (sp + sq + 0.001)
         if rng:chance(0.35) then
           if rng:chance(win) then self:conquer(p, q, fb) else self:conquer(q, p, fa) end
@@ -1162,8 +1203,14 @@ function Civ:politics()
   end
 end
 
+function Civ:swordMul(p)
+  if p ~= self.realm then return 1 end
+  return U.clamp(0.35 + 0.65 * self.focus[SWORD], 0.35, 2.5)
+end
+
 function Civ:conquer(winner, loser, k)
   local R, P = self.R, self.P
+  if winner == self.realm then self.conquests = self.conquests + 1 end
   local wasCap = P.cap[loser] == k
   R.owner[k] = winner
   R.dev[k] = math.min(1, R.dev[k] + 0.3)
@@ -1208,6 +1255,8 @@ function Civ:checkCollapse()
   local total = self.total or self:totalPop()
   local risk = math.max(0, (self.Un - 55) / 45) * math.max(0, (62 - self.S) / 62) + math.max(0, self.co2 - 85) * 0.004
   if self.famineN >= 3 then risk = risk + 0.06 end
+  -- a people without songs or books forgets why it holds together
+  if (self.starveG and self.starveG[ARTS] or 0) >= 4 then risk = risk + math.min(0.15, 0.02 * self.starveG[ARTS]) end
   self.risk = risk
   local collapse = self.rng:chance(risk * 0.6) or (self.Un >= 96 and self.S <= 18)
   if total < 2 and self.gen > 3 then collapse = true end
@@ -1460,7 +1509,7 @@ local EVENTS = {
         for k = 1, s.NR do if s.R.coast[k] and s.R.pop[k] > 60 then s.R.walls[k] = true end end
         popMul(s, 0.97) end },
       { "Fight on the beaches", "glory, or ruin", function(s)
-        if s.rng:chance(0.55) then s.S = s.S + 9 s.C = s.C + 3 s:chronicle("The raiders are thrown back into the sea.")
+        if s.rng:chance(U.clamp(0.2 + 0.35 * s.focus[SWORD], 0.15, 0.9)) then s.S = s.S + 9 s.C = s.C + 3 s:chronicle("The raiders are thrown back into the sea.")
         else popMul(s, 0.88, false, true) s.S = s.S - 6 s:chronicle("The coast burns for a season.") end end },
     } },
   succession = { title = "NO HEIR", weight = 1.0,
@@ -1623,17 +1672,26 @@ function Civ:cranked(change)
     end
     return
   end
+  self.net = self.net + change
   if change > 0 then
-    local before = self.wheel
-    self.wheel = self.wheel + change
-    local steps = floor(self.wheel / SUBDEG) - floor(before / SUBDEG)
+    local target = floor(self.net / SUBDEG)
+    local steps = target - self.hiSeason
     if steps > MAX_SUBSTEPS then
       -- the wheel slips: history can only be pushed so hard
+      self.hiSeason = target - MAX_SUBSTEPS
       steps = MAX_SUBSTEPS
       self.Un = math.min(100, self.Un + 0.5)
     end
     for _ = 1, steps do
-      Audio.sfx.tick(260 + self.era * 30, 0.1)
+      -- the season just completed pours its effort into its sector,
+      -- weighted by how long the hand lingered in it
+      local sector = floor((self.hiSeason % 12) / 2) + 1
+      self.hiSeason = self.hiSeason + 1
+      local dwell = self.seasonT
+      self.seasonT = 0
+      self:pour(sector, U.clamp(dwell, DWELL_MIN, DWELL_MAX))
+      self:pushDur(dwell)
+      Audio.sfx.tick(200 + sector * 45 + self.era * 10, 0.08 + math.min(0.2, dwell * 0.1))
       self:substep()
       self.subCount = (self.subCount or 0) + 1
       if self.subCount >= 12 then
@@ -1642,7 +1700,7 @@ function Civ:cranked(change)
       end
       if self.event or self.finished or self.ending then break end
     end
-    if self.wheel > 3600 then self.wheel = self.wheel - 3600 end
+    if self.net > 36000 then self.net = self.net - 36000 self.hiSeason = self.hiSeason - 1200 end
   elseif change < 0 then
     -- friction: conservatism
     local before = self.backAcc
@@ -1659,6 +1717,40 @@ function Civ:cranked(change)
     end
     if self.backAcc > 3600 then self.backAcc = self.backAcc - 3600 end
   end
+end
+
+-- effort into a sphere of life; focus = share of recent effort x 6
+function Civ:pour(sector, w)
+  local I = self.focusI
+  local sum = 0
+  for q = 1, 6 do
+    I[q] = I[q] * FOCUS_DECAY
+    if q == sector then I[q] = I[q] + w end
+    sum = sum + I[q]
+  end
+  for q = 1, 6 do self.focus[q] = 6 * I[q] / sum end
+  self.lastSector = sector
+  if sector == ARTS then
+    self.artsAcc = self.artsAcc + w
+    local need = (self.mode == "tutorial") and 2.5 or 5
+    if self.artsAcc >= need then
+      self.artsAcc = self.artsAcc - need
+      if self.hands < 5 then
+        self.hands = self.hands + 1
+        self.handsEarned = self.handsEarned + 1
+        Audio.sfx.coin()
+      end
+    end
+  end
+end
+
+-- generation rate from the last twelve season durations (pauses count up to 3s)
+function Civ:pushDur(d)
+  self.durIdx = self.durIdx % 12 + 1
+  self.durRing[self.durIdx] = math.min(DWELL_MAX, d)
+  local sum = 0
+  for i = 1, 12 do sum = sum + self.durRing[i] end
+  self.rps = 1 / math.max(0.05, sum)
 end
 
 function Civ:buttonDown(b)
@@ -1682,7 +1774,7 @@ function Civ:buttonDown(b)
       self.flashHand = 1
       Audio.sfx.bell(330, 0.4)
       Audio.play(Audio.SINE, 165, 0.3, 0.8, 0.05, 0.6, 0, 0.3)
-      self:chronicle("A steady hand is felt. The crowds go home.")
+      self:chronicle("The hand is felt. The crowds go home.")
     else
       Audio.sfx.denied()
     end
@@ -1715,17 +1807,9 @@ end
 function Civ:update(dt)
   self.t = self.t + dt
   self.tracker:update(dt)
-  -- smoothed tempo and steadiness
-  local v = self.tracker.vel
-  local raw = self.tracker.rawVel
-  self.rps = math.max(0, v / 360)
-  local dev = abs(raw - v) / math.max(90, abs(v))
-  if self.tracker.idle > 0.4 then dev = 0 end
-  self.jitter = U.damp(self.jitter, dev, 1.5, dt)
   local lo, hi = self:band()
-  if self.rps >= lo and self.rps <= hi and not self.event then self.steadyT = self.steadyT + dt else self.steadyT = 0 end
-  local pos = U.clamp(self.rps / (hi * 1.6), 0, 1)
-  self.tempoPos = U.damp(self.tempoPos, pos, 8, dt)
+  -- dwell: the current season lingers (history waits, but it counts)
+  if not self.event and not self.ending and not self.finished then self.seasonT = self.seasonT + dt end
   self.wobble = U.damp(self.wobble, 0, 10, dt)
   self.flashHand = math.max(0, self.flashHand - dt * 0.6)
   self.eraFlash = math.max(0, self.eraFlash - dt)
@@ -1737,8 +1821,8 @@ function Civ:update(dt)
     self.rumble:set(0, 0)
     self.growl:set(0, 0)
   else
-    local sp = math.min(2, self.rps)
-    self.rumble:set(36 + sp * 22, math.min(0.3, sp * 0.22))
+    local sp = math.min(2, abs(self.tracker.vel) / 360)
+    self.rumble:set(34 + sp * 20 + self:sectorAt() * 3, math.min(0.3, sp * 0.22))
     if self.rps > hi then self.growl:set(48 + (self.rps - hi) * 30, math.min(0.18, (self.rps / hi - 1) * 0.2)) else self.growl:set(0, 0) end
   end
 
@@ -1950,36 +2034,102 @@ function Civ:drawMap()
   end
 end
 
+function Civ:sectorAt()
+  return floor((self.net % 360) / 60) + 1
+end
+
+-- 9px icons for the six spheres
+local function drawSectorIcon(q, x, y)
+  if q == FIELDS then
+    gfx.fillRect(x, y - 4, 1, 9)
+    for i = 0, 2 do
+      gfx.fillRect(x - 2, y - 3 + i * 2, 2, 1)
+      gfx.fillRect(x + 1, y - 3 + i * 2, 2, 1)
+    end
+    gfx.fillRect(x - 1, y - 5, 3, 1)
+  elseif q == FORGE then
+    gfx.fillRect(x - 4, y - 3, 9, 3)
+    gfx.fillRect(x - 5, y - 3, 1, 1)
+    gfx.fillRect(x - 1, y, 3, 2)
+    gfx.fillRect(x - 3, y + 2, 7, 2)
+  elseif q == SWORD then
+    gfx.fillRect(x, y - 5, 1, 7)
+    gfx.fillRect(x - 3, y + 1, 7, 1)
+    gfx.fillRect(x, y + 2, 1, 2)
+    gfx.fillRect(x - 1, y + 4, 3, 1)
+  elseif q == TEMPLE then
+    gfx.fillRect(x - 4, y - 4, 9, 1)
+    gfx.fillRect(x - 3, y - 5, 7, 1)
+    gfx.fillRect(x - 3, y - 2, 1, 5)
+    gfx.fillRect(x, y - 2, 1, 5)
+    gfx.fillRect(x + 3, y - 2, 1, 5)
+    gfx.fillRect(x - 4, y + 3, 9, 2)
+  elseif q == ARTS then
+    gfx.fillRect(x + 1, y - 5, 1, 8)
+    gfx.fillRect(x + 2, y - 5, 2, 1)
+    gfx.fillRect(x + 3, y - 4, 1, 2)
+    gfx.fillRect(x - 2, y + 1, 3, 3)
+    gfx.fillRect(x - 1, y + 2, 3, 2)
+  else
+    gfx.fillRect(x - 4, y + 2, 9, 2)
+    gfx.fillRect(x - 3, y + 4, 7, 1)
+    gfx.fillRect(x, y - 5, 1, 7)
+    gfx.fillRect(x + 1, y - 4, 3, 5)
+  end
+end
+
 function Civ:drawWheel(cx, cy, r)
-  local ang = (self.wheel % 360) + self.wobble
+  local ang = (self.net % 360) + self.wobble
+  local cur = self:sectorAt()
   gfx.setColor(gfx.kColorBlack)
-  gfx.fillCircleAtPoint(cx, cy, r + 2)
+  gfx.fillCircleAtPoint(cx, cy, r + 3)
   gfx.setColor(gfx.kColorWhite)
-  gfx.fillCircleAtPoint(cx, cy, r - 1)
+  gfx.fillCircleAtPoint(cx, cy, r)
   gfx.setColor(gfx.kColorBlack)
-  -- the twelve seasons of a generation
+  local blink = floor(self.t * 3) % 2 == 0
+  for q = 1, 6 do
+    local a0 = (q - 1) * 60
+    local a = rad(a0)
+    gfx.drawLine(cx + sin(a) * 10, cy - cos(a) * 10, cx + sin(a) * r, cy - cos(a) * r)
+    -- focus pips on the rim: 2 = balanced, 4 = lavished, 0 = starved
+    local f = self.focus[q]
+    local pips = floor(U.clamp(f, 0, 2) * 2 + 0.5)
+    for i = 1, 4 do
+      local pa = rad(a0 + i * 12)
+      local px, py = cx + sin(pa) * (r - 4), cy - cos(pa) * (r - 4)
+      if i <= pips then gfx.fillRect(px - 1, py - 1, 3, 3) else gfx.drawPixel(px, py) end
+    end
+    local ia = rad(a0 + 30)
+    local ix, iy = cx + sin(ia) * (r * 0.6), cy - cos(ia) * (r * 0.6)
+    local starved = f < STARVED
+    if q == cur then
+      gfx.fillCircleAtPoint(ix, iy, 8)
+      gfx.setColor(gfx.kColorWhite)
+      drawSectorIcon(q, ix, iy)
+      gfx.setColor(gfx.kColorBlack)
+    elseif not starved or blink then
+      drawSectorIcon(q, ix, iy)
+    end
+  end
+  -- hub: seasons of this generation
+  gfx.setColor(gfx.kColorWhite)
+  gfx.fillCircleAtPoint(cx, cy, 9)
+  gfx.setColor(gfx.kColorBlack)
+  gfx.drawCircleAtPoint(cx, cy, 9)
   local sub = self.subCount or 0
   for i = 0, 11 do
     local a = rad(i * 30)
-    local x1, y1 = cx + sin(a) * (r - 1), cy - cos(a) * (r - 1)
-    if i < sub then
-      gfx.fillCircleAtPoint(x1, y1, 2)
-    else
-      gfx.drawPixel(x1, y1)
-    end
+    local x1, y1 = cx + sin(a) * 6, cy - cos(a) * 6
+    if i < sub then gfx.fillRect(x1 - 1, y1 - 1, 2, 2) else gfx.drawPixel(x1, y1) end
   end
-  gfx.setLineWidth(2)
-  for i = 0, 5 do
-    local a = rad(ang + i * 60)
-    gfx.drawLine(cx, cy, cx + sin(a) * (r - 5), cy - cos(a) * (r - 5))
-  end
-  gfx.setLineWidth(1)
-  gfx.drawCircleAtPoint(cx, cy, r - 5)
-  gfx.fillCircleAtPoint(cx, cy, 4)
-  -- crank handle
+  -- the pointer (the crank), with a swelling bead while it lingers
   local a = rad(ang)
-  local hx, hy = cx + sin(a) * (r - 5), cy - cos(a) * (r - 5)
-  gfx.fillCircleAtPoint(hx, hy, 3)
+  local sa, ca = sin(a), cos(a)
+  gfx.setLineWidth(2)
+  gfx.drawLine(cx + sa * 9, cy - ca * 9, cx + sa * (r + 1), cy - ca * (r + 1))
+  gfx.setLineWidth(1)
+  local bead = 2 + math.min(4, self.seasonT * 2)
+  gfx.fillCircleAtPoint(cx + sa * (r + 1), cy - ca * (r + 1), bead)
   -- the pawl: drops into the wheel when an event locks it
   local py = cy - r - 7
   local drop = self.event and 5 or 0
@@ -2001,8 +2151,14 @@ function Civ:drawPanel()
   else
     UI.text(era.name, x0 + 65, 20, "center", UI.bold)
   end
+  local lo, hi = self:band()
   local n = self:aliveCount()
-  if self.dark > 0 then
+  if self.rps > hi and not self.event then
+    if floor(self.t * 5) % 2 == 0 then
+      gfx.fillRect(x0 + 24, 36, 82, 16)
+      UI.textW("RUSHED!", x0 + 65, 36, "center", UI.bold)
+    end
+  elseif self.dark > 0 then
     UI.text("DARK AGE", x0 + 65, 36, "center")
   elseif n == 1 then
     local d = self:dominant()
@@ -2010,46 +2166,23 @@ function Civ:drawPanel()
   else
     UI.text(U.cached("civ_states", "%d STATES", n), x0 + 65, 36, "center")
   end
-  self:drawWheel(x0 + 30, 78, 20)
-  UI.text("PEOPLE", x0 + 60, 56)
+  self:drawWheel(x0 + 65, 96, 34)
+  -- the sphere under the pointer and the length of a turn
+  UI.text(SECTOR_NAMES[self:sectorAt()], x0 + 6, 134, "left", UI.bold)
+  UI.text(U.cached("civ_ypg", "%dY", ERAS[self.era].ypg), x0 + 124, 134, "right")
+  UI.text("PEOPLE", x0 + 6, 149)
   local tp = self.total or 0
   local shown
   if tp >= 1000 then shown = U.cached("civ_popm", "%.1fM", floor(tp / 100) / 10)
   else shown = U.cached("civ_popk", "%dK", floor(tp + 0.5)) end
-  UI.text(shown, x0 + 124, 70, "right", UI.bold)
-  UI.text(U.cached("civ_ypg", "%d YRS", ERAS[self.era].ypg), x0 + 124, 88, "right")
-  -- tempo gauge
-  local gx, gy, gw = x0 + 6, 118, 116
-  local lo, hi = self:band()
-  local sc = hi * 1.6
-  local xl, xh = floor(gw * lo / sc), floor(gw * hi / sc)
-  UI.text("TEMPO", x0 + 6, 102)
-  gfx.setPattern(Art.pat.gray50)
-  gfx.fillRect(gx, gy, xl, 10)
-  gfx.setPattern(Art.pat.hatch)
-  gfx.fillRect(gx + xh, gy, gw - xh, 10)
-  gfx.setColor(gfx.kColorBlack)
-  gfx.drawRect(gx, gy, gw, 10)
-  local nx = gx + floor(gw * self.tempoPos)
-  gfx.fillRect(nx - 4, gy - 5, 9, 2) gfx.fillRect(nx - 2, gy - 3, 5, 2)
-  gfx.fillRect(nx - 1, gy - 1, 3, 12)
-  -- bars
-  local by = 132
-  self:bar("FOOD", x0, by, U.clamp(self:foodRatio(), 0, 1))
-  self:bar("ORDER", x0, by + 14, self.S / 100)
-  self:bar("UNREST", x0, by + 28, self.Un / 100, true)
-  UI.text("LORE", x0 + 6, by + 40)
-  UI.text(U.cached("civ_lore", "%d", floor(self.C)), x0 + 124, by + 40, "right", UI.bold)
-  -- hands
-  UI.text("HANDS", x0 + 6, by + 54)
+  UI.text(shown, x0 + 124, 149, "right", UI.bold)
+  self:bar("ORDER", x0, 167, self.S / 100)
+  self:bar("UNREST", x0, 179, self.Un / 100, true)
+  UI.text(U.cached("civ_lore", "LORE %d", floor(self.C)), x0 + 6, 186)
   gfx.setColor(gfx.kColorBlack)
   for i = 1, 5 do
-    local hx = x0 + 70 + (i - 1) * 11
-    if i <= self.hands then
-      drawHandGlyph(hx, by + 62, 1)
-    else
-      gfx.fillRect(hx - 1, by + 62, 3, 1)
-    end
+    local hx = x0 + 78 + (i - 1) * 10
+    if i <= self.hands then drawHandGlyph(hx, 196, 1) else gfx.fillRect(hx - 1, 196, 3, 1) end
   end
 end
 
@@ -2135,7 +2268,7 @@ function Civ:draw()
   if self.event then UI.hints(Civ.HINTS_EVENT) else UI.hints(Civ.HINTS) end
 end
 
-Civ.HINTS = { { "CRANK", "TURN HISTORY" }, { "B", "HAND" }, { "A", "CHRONICLE" } }
+Civ.HINTS = { { "CRANK", "LINGER / HURRY" }, { "B", "HAND" }, { "A", "CHRONICLE" } }
 Civ.HINTS_EVENT = { { "DPAD", "CHOOSE" }, { "A", "DECIDE" }, { "CRANK", "LOCKED" } }
 
 ------------------------------------------------------------------------
@@ -2158,7 +2291,8 @@ function Civ:serialize()
     subCount = self.subCount or 0, falls = self.falls, yearsBanked = self.yearsBanked, peakPop = self.peakPop,
     statues = self.statues, T = copyArr(self.T, 6), C = self.C, F = self.F, S = self.S, Un = self.Un, G = self.G,
     co2 = self.co2, dark = self.dark, coldT = self.coldT, cool = self.cool, grudge = self.grudge, hands = self.hands,
-    steadyGens = self.steadyGens, era = self.era, civName = self.civName, civYear0 = self.civYear0 or 0, ageYear0 = self.ageYear0 or 0,
+    net = self.net, hiSeason = self.hiSeason, focusI = copyArr(self.focusI, 6), starveG = copyArr(self.starveG, 6),
+    artsAcc = self.artsAcc, handsEarned = self.handsEarned, era = self.era, civName = self.civName, civYear0 = self.civYear0 or 0, ageYear0 = self.ageYear0 or 0,
     statueBuilt = self.statueBuilt == true, statueRegion = self.statueRegion or 0,
     printed = self.printed == true, steamed = self.steamed == true, collapses = self.collapses or 0,
     pop = copyArr(R.pop, NR), owner = copyArr(R.owner, NR), dev = copyArr(R.dev, NR), sick = copyArr(R.sick, NR),
@@ -2182,7 +2316,14 @@ function Civ:deserialize(t)
   for i = 1, 6 do self.T[i] = t.T[i] end
   self.C, self.F, self.S, self.Un, self.G = t.C, t.F, t.S, t.Un, t.G
   self.co2, self.dark, self.coldT, self.cool, self.grudge = t.co2, t.dark, t.coldT, t.cool, t.grudge
-  self.hands, self.steadyGens, self.era, self.civName, self.civYear0 = t.hands, t.steadyGens, t.era, t.civName, t.civYear0
+  self.hands, self.era, self.civName, self.civYear0 = t.hands, t.era, t.civName, t.civYear0
+  self.net, self.hiSeason = t.net or 0, t.hiSeason or 0
+  self.artsAcc, self.handsEarned = t.artsAcc or 0, t.handsEarned or 0
+  if t.focusI then
+    local sum = 0
+    for q = 1, 6 do self.focusI[q] = t.focusI[q] sum = sum + t.focusI[q] self.starveG[q] = t.starveG and t.starveG[q] or 0 end
+    for q = 1, 6 do self.focus[q] = 6 * self.focusI[q] / math.max(1e-6, sum) end
+  end
   self.ageYear0 = t.ageYear0 or t.civYear0
   self.statueBuilt = t.statueBuilt
   self.statueRegion = (t.statueRegion or 0) > 0 and t.statueRegion or nil
