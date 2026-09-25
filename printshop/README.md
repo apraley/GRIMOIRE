@@ -12,7 +12,7 @@ Playdate in 1-bit. It combines six tools that share one logbook:
 | ![](docs/screenshots/12_calib_tower.png) | **Calibration Wizard** | Guided procedures (bed level, flow, temp tower, retraction, dimensions, first layer, tolerance). The crank dials in what you measured. Results become profiles per printer, material and maker. |
 | ![](docs/screenshots/15_maint.png) | **Maintenance Log** | Chores due by print hours or days, whichever comes first, on an hour odometer that every print advances. Custom tasks, one-off events and full history. |
 | ![](docs/screenshots/16_captain.png) | **The Benchy Captain** | A sea captain whose boat is a Benchy. He is a rule-based advisor built from phrase banks: he celebrates, commiserates, nags about chores and suggests calibrations based on your logged failures. |
-| ![](docs/screenshots/18_stats_materials.png) | **Stats Office** | Success rates per material and maker, failure causes, projects and printers. |
+| ![](docs/screenshots/18_stats_materials.png) | **Stats Office** | Success rates per material and maker, failure causes, projects (with a per-project logbook) and printers. |
 
 ## The point: everything is connected
 
@@ -143,13 +143,14 @@ lua5.4 tests/shots.lua && python3 tools/pbm2png.py   # screenshots into tests/ou
   an error.**
 * `tools/check_api.py` statically checks every `playdate.*` reference, and
   method calls on SDK objects, in the source.
-* `tests/run.lua` has 37 tests: persistence round trips, corrupt, partial
+* `tests/run.lua` has 51 tests: persistence round trips, corrupt, partial
   and newer saves, v1 → v4 migration, the finish-print ripple, runout and
   spool swap, deterministic demo failures, pending-failure logging through
   the UI, calibration re-profiling, maintenance crossings, Bambu mapping, a
   **bridge end-to-end test against the real Python bridge**, Captain variety
   and determinism, every screen and its empty state, crank reordering,
-  keyboard entry, the system menu, and a 4000-step input fuzz.
+  keyboard entry, the system menu, a 4000-step input fuzz, and regression
+  tests for every issue found in code review.
 * `tests/raster.lua` is a small 1-bit rasterizer. It renders the
   screenshots in `docs/screenshots/`, so layout gets reviewed visually too.
 

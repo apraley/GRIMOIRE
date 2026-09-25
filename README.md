@@ -1,5 +1,8 @@
 # GRIMOIRE
 
+> This repository also hosts **[PRINT SHOP](printshop/README.md)**, a 1-bit
+> 3D-printing workshop app for the Panic Playdate. It lives in `printshop/`.
+
 GRIMOIRE is a text-based world simulator you play as a single person inside
 it. There is no map you control, no faction sheet, no "empire" handed to you
 at the start. You generate a planet — plate tectonics, climate, biomes,
