@@ -121,17 +121,17 @@ function Store.settings() return Store.data.settings end
 
 function Store.activePrinter()
 	local d = Store.data
-	return U.findById(d.printers, d.settings.activePrinterId) or d.printers[1]
+	return (U.findById(d.printers, d.settings.activePrinterId)) or d.printers[1]
 end
 
 function Store.printer(id)
-	return U.findById(Store.data.printers, id)
+	return (U.findById(Store.data.printers, id))
 end
 
 function Store.spool(id)
-	return U.findById(Store.data.spools, id)
+	return (U.findById(Store.data.spools, id))
 end
 
 function Store.job(id)
-	return U.findById(Store.data.jobs, id)
+	return (U.findById(Store.data.jobs, id))
 end

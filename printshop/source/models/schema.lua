@@ -237,7 +237,13 @@ function Schema.repair(d)
 	d.captain.lastTopics = U.asList(d.captain.lastTopics)
 	d.captain.inbox = U.asList(d.captain.inbox)
 
-	d.printLog = U.asList(d.printLog)
+	local log = {}
+	for _, e in ipairs(U.asList(d.printLog)) do
+		if type(e) == "table" then
+			log[#log + 1] = { at = U.int(e.at, 0), text = U.upper(U.str(e.text, "")) }
+		end
+	end
+	d.printLog = log
 	d.providerState = type(d.providerState) == "table" and d.providerState or {}
 
 	-- There must always be at least one printer to attach jobs to.

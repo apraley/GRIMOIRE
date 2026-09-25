@@ -44,6 +44,8 @@ function StatsScreen:update()
 			if r and r.calib then text = text .. "Try the " .. Phrases.procedureNames[r.calib] .. ". " end
 			if r and r.maint then text = text .. "Check " .. string.lower(Enums.MAINT_LABEL[r.maint]) .. "." end
 			Common.say({ text = text, mood = "stern" })
+		elseif p == "PROJECTS" and row then
+			Screens.push(ProjectScreen.new(row.name))
 		elseif p == "OVERVIEW" then
 			Common.help("stats")
 		end
@@ -155,7 +157,7 @@ function StatsScreen:drawPrinters()
 end
 
 function StatsScreen:draw()
-	Common.page("STATS OFFICE", nil, FontData.icon.left .. FontData.icon.right .. ":PAGE  A:ASK CAPTAIN  B:BACK", "checker")
+	Common.page("STATS OFFICE", nil, FontData.icon.left .. FontData.icon.right .. ":PAGE  A:DETAILS  B:BACK", "checker")
 	local x = 6
 	for i, name in ipairs(StatsScreen.PAGES) do
 		local w = Text.width(name) + 10
@@ -174,4 +176,92 @@ function StatsScreen:draw()
 	elseif p == "CAUSES" then self:drawCauses()
 	elseif p == "PROJECTS" then self:drawProjects()
 	else self:drawPrinters() end
+end
+
+---------------------------------------------------------------------------
+-- Project detail: every job and every print attempt in a project.
+
+ProjectScreen = {}
+ProjectScreen.__index = ProjectScreen
+
+function ProjectScreen.new(name)
+	local s = setmetatable({ name = name, list = ScrollList.new(8) }, ProjectScreen)
+	s:refresh()
+	return s
+end
+
+function ProjectScreen:refresh()
+	local rows = {}
+	for _, j in ipairs(Store.data.jobs) do
+		if j.project == self.name then rows[#rows + 1] = { kind = "job", job = j } end
+	end
+	for _, h in ipairs(Stats.recent(500, function(h) return h.project == self.name end)) do
+		rows[#rows + 1] = { kind = "hist", h = h }
+	end
+	self.rows = rows
+	self.list:setCount(#rows)
+	self.agg = U.find(Stats.projects(), function(p) return p.name == self.name end)
+end
+
+function ProjectScreen:resume() self:refresh() end
+
+function ProjectScreen:update()
+	self.list:update()
+	if Input.a() then
+		local r = self.rows[self.list.sel]
+		if r and r.kind == "job" then
+			Screens.push(JobEditScreen.new(r.job))
+		elseif r then
+			local h = r.h
+			local text = string.format("%s on %s: %s. %s of %s %s, %s, nozzle %s.", h.jobName, U.fmtDate(h.endedAt),
+				string.lower(h.outcome), U.fmtGrams(h.grams), h.manufacturer, h.material, U.fmtDuration(h.durationSec),
+				h.nozzleTemp > 0 and U.fmtTemp(h.nozzleTemp) or "?")
+			if h.cause ~= "" then text = text .. " Cause: " .. string.lower(Enums.CAUSE_LABEL[h.cause] or h.cause) .. "." end
+			if h.notes ~= "" then text = text .. ' "' .. h.notes .. '"' end
+			Dialog.open({ text }, { speaker = "LOGBOOK" })
+		end
+	elseif Input.b() then
+		Sfx.play("back")
+		Screens.pop()
+	end
+end
+
+function ProjectScreen:draw()
+	Common.page("PROJECT", self.name, "A:OPEN  CRANK:SCROLL  B:BACK", "checker")
+	local a = self.agg
+	Draw.window(4, 20, 392, 38, { title = U.truncate(self.name, 30) })
+	if a then
+		Text.draw(string.format("%d PRINTS  %d OK  %d FAILED  %s  %s", a.prints, a.successes, a.failures,
+			U.fmtGrams(a.grams), U.fmtHours(a.hours)), 16, 30)
+		local cost = 0
+		for _, r in ipairs(self.rows) do
+			if r.kind == "hist" then
+				local s = Store.spool(r.h.spoolId)
+				if s then cost = cost + Filament.cost(s, r.h.grams) end
+			end
+		end
+		Text.draw(string.format("%d OPEN JOBS  %d DONE  FILAMENT %s", a.open, a.done, U.fmtMoney(cost)), 16, 41)
+	end
+	Draw.window(4, 62, 392, 162)
+	if #self.rows == 0 then
+		Text.draw("NOTHING IN THIS PROJECT YET.", 200, 90, { align = "center" })
+		return
+	end
+	for i, row in self.list:visible() do
+		local r = self.rows[i]
+		local y = 72 + row * 18
+		if r.kind == "job" then
+			Draw.tag(Job.STATUS_TAG[r.job.status] or "?", 24, y - 1, r.job.status == "PRINTING")
+			Text.draw(U.truncate(r.job.name, 26), 56, y)
+			Text.draw(U.fmtDuration(r.job.estMinutes * 60) .. " " .. U.fmtGrams(r.job.estGrams), 384, y, { align = "right" })
+		else
+			local h = r.h
+			local mark = h.outcome == "success" and FontData.icon.check or (h.outcome == "failed" and FontData.icon.cross or "-")
+			Text.draw(mark .. " " .. U.fmtShortDate(h.endedAt), 24, y)
+			Text.draw(U.truncate(h.jobName, 22), 100, y)
+			Text.draw(h.cause ~= "" and U.truncate(Enums.CAUSE_LABEL[h.cause], 10) or U.fmtGrams(h.grams), 384, y, { align = "right" })
+		end
+		if i == self.list.sel then Draw.cursor(12, y + 1) end
+	end
+	self.list:drawScrollbar(388, 68, 150)
 end

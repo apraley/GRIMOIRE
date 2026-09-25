@@ -913,6 +913,101 @@ test("maintenance: log done via the UI resets the task", function()
 	eq(MaintService.logFor(e.task.id, 1)[1].taskId, e.task.id)
 end)
 
+test("project history: detail screen lists jobs and attempts", function()
+	boot({})
+	local name = "GARDEN"
+	Screens.push(ProjectScreen.new(name))
+	local p = Screens.top()
+	ok(#p.rows > 5, "rows")
+	ok(p.agg and p.agg.prints > 5, "aggregate")
+	-- Completing a GARDEN job updates the project.
+	local before = p.agg.successes
+	Printing.markComplete(Store.job("j4"))
+	p:refresh()
+	eq(p.agg.successes, before + 1)
+	p.list:select(#p.rows)                   -- an attempt row
+	press(B.A)
+	eq(topName(), "Dialog")
+	press(B.B)                                 -- finish typing
+	press(B.B)                                 -- close
+	eq(topName(), "ProjectScreen")
+	press(B.B)
+	eq(topName(), "HomeScreen")
+end)
+
+test("edge: pending failure and runout survive a restart", function()
+	boot({})
+	Store.settings().demoChaos = false
+	local p = Printing.provider
+	p.st.failAt = p.st.elapsedSec / p.st.totalSec + 0.01
+	p.st.failCause = "clog"
+	p.st.failReason = "CLOG"
+	Screens.push(StatsScreen.new())     -- not auto-opening the failure log here
+	for _ = 1, 20 do MOCK.advance(10) MOCK.frame(nil, 0, 200) end
+	ok(Store.data.pendingFailure, "pending")
+	App.saveAll()
+	boot({ printshop = MOCK.files.printshop })
+	ok(Store.data.pendingFailure, "pending after restart")
+	eq(Printing.snapshot().state, "ERROR", "printer still shows the error")
+	Screens.push(FailureScreen.new())
+	eq(Screens.top().cause, "clog", "suggested cause preselected")
+	Printing.resolvePending({ cause = "clog" })
+	eq(Store.data.pendingFailure, nil)
+	Screens.popToRoot()
+end)
+
+test("edge: each printer keeps its own provider state", function()
+	boot({})
+	local p1 = Store.activePrinter()
+	local elapsed = Printing.provider.st.elapsedSec
+	-- Make the second printer a demo too, switch to it and back.
+	local p2 = Store.printer("p2")
+	p2.provider = "demo"
+	Printing.switchPrinter("p2")
+	eq(Store.activePrinter().id, "p2")
+	eq(Printing.snapshot().state, "IDLE", "p2 idle")
+	-- The seeded job belongs to p1; queue next for p2 is empty.
+	eq(Queue.nextFor("p2"), nil)
+	Printing.switchPrinter("p1")
+	eq(Printing.snapshot().state, "PRINTING", "p1 print resumed")
+	ok(Printing.provider.st.elapsedSec >= elapsed, "progress kept")
+	eq(Store.activePrinter(), p1)
+end)
+
+test("edge: deleting a spool clears references; jobs survive", function()
+	boot({})
+	local s = Store.spool("s2")
+	local users = U.filter(Store.data.jobs, function(j) return j.spoolId == "s2" end)
+	ok(#users > 0)
+	Screens.push(SpoolEditScreen.new(s))
+	Screens.top():delete()
+	press(B.UP)                                -- confirm defaults to NO
+	press(B.A)                                 -- YES
+	eq(Store.spool("s2"), nil)
+	for _, j in ipairs(users) do eq(j.spoolId, nil) end
+	-- History rows still point at the old id and screens cope with it.
+	Screens.popToRoot()
+	Screens.push(StatsScreen.new())
+	for _ = 1, 5 do press(B.RIGHT) end
+	App.saveAll()
+	boot({ printshop = MOCK.files.printshop })
+	eq(Store.spool("s2"), nil)
+end)
+
+test("edge: garbage provider state is ignored safely", function()
+	boot({})
+	local doc = json.decode(MOCK.files.printshop)
+	doc.providerState = { ["p1:demo"] = { state = "PRINTING", totalSec = "x", elapsedSec = -5 }, junk = 7 }
+	doc.printLog = { { at = "yesterday", text = 5 } }
+	boot({ printshop = json.encode(doc) })
+	frames(10)
+	local st = Printing.snapshot().state
+	ok(st == "IDLE" or st == "PRINTING", st)
+	Screens.push(WatchScreen.new())
+	frames(5)
+	Screens.popToRoot()
+end)
+
 test("system menu items exist and work", function()
 	boot({})
 	local names = {}

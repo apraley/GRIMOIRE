@@ -108,6 +108,11 @@ function QueueScreen:actions(j)
 	elseif not live then
 		items[#items + 1] = { label = "ARCHIVE", action = function() Queue.archive(j, true) self:refresh() end }
 	end
+	if j.project ~= "" then
+		items[#items + 1] = { label = "PROJECT: " .. U.truncate(j.project, 14), action = function()
+			Screens.push(ProjectScreen.new(j.project))
+		end }
+	end
 	items[#items + 1] = { label = "SORT QUEUE BY PRIORITY", action = function()
 		Queue.sortByPriority()
 		self:refresh()
