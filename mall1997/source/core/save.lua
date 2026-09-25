@@ -62,6 +62,10 @@ local function pack(v)
 end
 
 local function unpack_(v)
+  if type(v) == "number" then
+    -- JSON has one number type; make ids integers again so "s" .. id is "s12"
+    return math.tointeger(v) or v
+  end
   if type(v) ~= "table" then return v end
   if v.__set then
     local out = {}

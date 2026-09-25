@@ -54,7 +54,7 @@ local FAULTS = {
 }
 local PARTS = { "monitor chassis", "coin mech", "speaker", "button switch", "power supply", "joystick harness",
   "RGB cable", "battery backup" }
-local BILL_ASK = { "Tokens for this, please.", "Can I get tokens? My mom's at Sears for 3 hours.",
+local BILL_ASK = { "Tokens for this, please.", "Can I get tokens? My mom's at Hargrove's for 3 hours.",
   "All of it in tokens. ALL of it.", "Tokens please. I'm going for the Skee-Roll record.",
   "My allowance. Tokens. Go." }
 local JAM = { "(The change machine ate a Canadian quarter again.)", "(Change machine: OUT OF ORDER since 1994.)",

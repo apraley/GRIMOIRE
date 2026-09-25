@@ -14,6 +14,11 @@ local SRC = PD_SOURCE_DIR or (PD_TOOLS_DIR .. "../source/")
 
 local calls = {}          -- api name -> count (for the report)
 PDMOCK_CALLS = calls
+-- api name -> implementation. Every documented function is a counting stub
+-- that dispatches through this table, so tools/pdraster.lua can swap in real
+-- implementations without losing strictness or call counts.
+local impls = {}
+PDMOCK_IMPL = impls
 
 local function readLines(path)
   local t = {}
@@ -45,7 +50,13 @@ PDMOCK_INPUT = inputState
 local nowMs = 0
 PDMOCK_TIME = function(ms) nowMs = ms end
 
-local function fontObj() return newInstance("playdate.graphics.font", {}) end
+PDMOCK_NEW_INSTANCE = newInstance
+
+-- Text metrics: a flat 7px advance / 16px line unless tools/pdraster.lua is
+-- loaded, which installs PDMOCK_TEXT (its bitmap font's metrics, see
+-- tools/pdtext.lua) so layout matches the rendered screenshots.
+local VARIANT_NAMES = { [0] = "normal", [1] = "bold", [2] = "italic" }
+local function fontObj(variant) return newInstance("playdate.graphics.font", { variant = VARIANT_NAMES[variant or 0] or "normal" }) end
 local function imageObj(w, h) return newInstance("playdate.graphics.image", { w = w or 1, h = h or 1 }) end
 
 overrides["playdate.graphics.image.new"] = function(a, b)
@@ -53,12 +64,18 @@ overrides["playdate.graphics.image.new"] = function(a, b)
   return nil -- no image files ship with the game
 end
 overrides["playdate.graphics.image:getSize"] = function(self) return self.w, self.h end
-overrides["playdate.graphics.getSystemFont"] = function() return fontObj() end
+overrides["playdate.graphics.getSystemFont"] = function(variant) return fontObj(variant) end
 overrides["playdate.graphics.getFont"] = function() return fontObj() end
 overrides["playdate.graphics.font.new"] = function() return nil end
-overrides["playdate.graphics.font:getHeight"] = function() return 16 end
-overrides["playdate.graphics.font:getTextWidth"] = function(self, s) return #tostring(s) * 7 end
-overrides["playdate.graphics.getTextSize"] = function(s) return #tostring(s) * 7, 16 end
+overrides["playdate.graphics.font:getHeight"] = function() return PDMOCK_TEXT and PDMOCK_TEXT.height or 16 end
+overrides["playdate.graphics.font:getTextWidth"] = function(self, s)
+  if PDMOCK_TEXT then return (PDMOCK_TEXT.size(s, self.variant, false)) end
+  return #tostring(s) * 7
+end
+overrides["playdate.graphics.getTextSize"] = function(s, fontFamily, leading)
+  if PDMOCK_TEXT then return PDMOCK_TEXT.size(s, "normal", true, leading) end
+  return #tostring(s) * 7, 16
+end
 overrides["playdate.graphics.getDrawOffset"] = function() return 0, 0 end
 overrides["playdate.buttonIsPressed"] = function(b) return (inputState.cur & b) ~= 0 end
 overrides["playdate.buttonJustPressed"] = function(b) return (inputState.cur & b) ~= 0 and (inputState.prev & b) == 0 end
@@ -107,8 +124,8 @@ end
 for _, name in ipairs(readLines(PD_TOOLS_DIR .. "pd_api_functions.txt")) do
   local owner, sep, fn = name:match("^(.*)([.:])([%w_]+)$")
   if owner and not owner:match("^_") then
-    local impl = overrides[name] or function() return nil end
-    local counted = function(...) calls[name] = (calls[name] or 0) + 1; return impl(...) end
+    impls[name] = overrides[name] or function() return nil end
+    local counted = function(...) calls[name] = (calls[name] or 0) + 1; return impls[name](...) end
     if sep == ":" then
       instanceClasses[owner] = instanceClasses[owner] or {}
       instanceClasses[owner][fn] = counted
@@ -235,8 +252,9 @@ do
       else
         local num = s:match("^-?%d+%.?%d*[eE]?[-+]?%d*", pos)
         pos = pos + #num
-        -- Playdate's decoder yields Lua numbers; integers stay integers
-        return math.tointeger(tonumber(num)) or tonumber(num)
+        -- be pessimistic: decode every number as a float (the game must
+        -- normalize ids itself when loading)
+        return tonumber(num) + 0.0
       end
     end
     return val()

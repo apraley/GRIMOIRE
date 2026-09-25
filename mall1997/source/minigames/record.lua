@@ -49,8 +49,8 @@ end
 -- ------------------------------------------------------------ content
 local MOOD_ASK = {
   loud = { "Something LOUD for my brother's birthday.", "I need something that'll annoy my neighbors." },
-  sad = { "Just got dumped at the Orange Julius. Sad stuff.", "Something to cry to in my Camaro." },
-  happy = { "Something happy. It's been a long week at Sbarro.", "Upbeat stuff for my road trip to Myrtle Beach." },
+  sad = { "Just got dumped at the Citrus Whip. Sad stuff.", "Something to cry to in my Camaro." },
+  happy = { "Something happy. It's been a long week at Pizza Pronto.", "Upbeat stuff for my road trip to Myrtle Beach." },
   chill = { "Something chill for studying. Or not studying.", "Mellow stuff for my lava lamp." },
   angry = { "My dad took my pager. I need ANGRY music.", "Something mad. Really mad." },
   weird = { "Something weird. Like, weirder than Bjork.", "Something my mom will not understand." },

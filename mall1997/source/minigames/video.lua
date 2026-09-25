@@ -64,7 +64,7 @@ local RETURN_ASK = {
 }
 local WIN = { "Perfect! Popcorn time.", "Thanks! Can I get Milk Duds too?", "Yes! Last copy!" }
 local MISS = { "That's... not it.", "No, the OTHER one.", "Hmm, not what I asked for." }
-local LEAVE = { "Forget it, I'll go to Blockbuster.", "I'll just watch TV Guide channel." }
+local LEAVE = { "Forget it, I'll go to the other video store.", "I'll just watch TV Guide channel." }
 
 local function stars(q) return math.max(1, math.min(4, math.floor(q / 25) + 1)) end
 

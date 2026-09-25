@@ -62,8 +62,17 @@ function Secret.model()
     end
   end
   function sc:draw()
+    Secret.schematic("THE MODEL", true)
+  end
+  Scene.push(sc)
+end
+
+-- schematic of both floors. model=true: the uncanny version (lights flicker,
+-- the next tenant already glows); otherwise the public directory map.
+function Secret.schematic(title, model)
+  do
     Gfx.clear("black")
-    Gfx.text("THE MODEL", 200, 4, { white = true, bold = true, align = "center" })
+    Gfx.text(title, 200, 4, { white = true, bold = true, align = "center" })
     local w = W.mall.w
     local sx = 392 / w
     for f = 1, 2 do
@@ -78,8 +87,8 @@ function Secret.model()
           local hh = (sl.row == "west" or sl.row == "east") and 62 or 16
           local s = sl.store and W.stores[sl.store]
           if s and s.open then
-            if (Gfx.frame // 20 + sl.id) % 17 ~= 0 then Gfx.fill(x, yy, ww, hh, "white") else Gfx.fill(x, yy, ww, hh, "light") end
-          elseif sl.coming then
+            if not model or (Gfx.frame // 20 + sl.id) % 17 ~= 0 then Gfx.fill(x, yy, ww, hh, "white") else Gfx.fill(x, yy, ww, hh, "light") end
+          elseif sl.coming and model then
             Gfx.fill(x, yy, ww, hh, (Gfx.frame // 10) % 2 == 0 and "gray" or "dark")
           else
             Gfx.rect(x, yy, ww, hh, "white")
@@ -88,12 +97,31 @@ function Secret.model()
       end
       Gfx.text(f == 1 and "LOWER" or "UPPER", 8, y0 + 26, { white = true })
     end
-    -- tiny figures: everyone currently in the mall
-    local count = 0
-    for a, list in pairs(NPCAI.byArea) do count = count + #list end
-    Gfx.text(count .. " tiny figures", 200, 120, { white = true, align = "center" })
+    if model then
+      -- tiny figures: everyone currently in the mall
+      local count = 0
+      for _, list in pairs(NPCAI.byArea) do count = count + #list end
+      Gfx.text(count .. " tiny figures", 200, 120, { white = true, align = "center" })
+    else
+      -- YOU ARE HERE
+      local p = W.p
+      local f, px
+      if p.area == "c1" or p.area == "c2" then f = tonumber(p.area:sub(2)); px = p.x / 16
+      else
+        local num = p.area:match("^s(%d+)$")
+        local s = num and W.stores[tonumber(num)]
+        if s and s.x then f = s.floor; px = s.x + (s.w or 4) / 2 end
+        if p.area == "fc" then f = 2; px = W.mall.court0 + 9 end
+      end
+      if f then
+        local y0 = f == 1 and 150 or 40
+        local x = 4 + px * sx
+        if (Gfx.frame // 8) % 2 == 0 then Gfx.circle(x, y0 + 35, 5, true, "white") end
+        Gfx.text("YOU ARE HERE", x, y0 + 38, { white = true, align = "center", bold = true })
+      end
+      Gfx.text("Food court + Cineplex: upstairs, center.  Exit: downstairs, center.", 200, 222, { white = true, align = "center" })
+    end
   end
-  Scene.push(sc)
 end
 
 -- the janitor's ledger: the world's own memory, handwritten

@@ -6,7 +6,7 @@ Lore = {}
 
 Lore.MYTHS = {
   { key = "well", txt = "the fountain was built over the old Hollis farm well", heat = 4 },
-  { key = "vents", txt = "a kid got lost in the air vents in 1989 and came out in the Sears-that-was", heat = 3 },
+  { key = "vents", txt = "a kid got lost in the air vents in 1989 and came out in the old anchor store", heat = 3 },
   { key = "shelter", txt = "there's a fallout shelter under the mall from before it was built", heat = 4 },
   { key = "store", txt = "that one storefront has said COMING SOON since 1991", heat = 3 },
   { key = "janitor", txt = "the night janitor talks to somebody after closing, but he's alone", heat = 5 },

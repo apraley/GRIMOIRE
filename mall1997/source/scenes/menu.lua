@@ -153,6 +153,7 @@ B.MALL = function()
   hdr("TRENDS")
   for _, t in ipairs(Trends.describe()) do rows[#rows + 1] = { text = t } end
   hdr("DIRECTORY")
+  rows[#rows + 1] = { text = "> View map (YOU ARE HERE)", act = function() Menu.map() end }
   local list = {}
   for _, s in ipairs(W.stores) do if s.open then list[#list + 1] = s end end
   table.sort(list, function(a, b) return a.name < b.name end)
@@ -286,6 +287,13 @@ function Menu.person(n)
     if m.s == -1 then lines[#lines + 1] = "They remember: " .. m.txt .. " (" .. Clock.shortDate(m.d) .. ")." break end
   end
   Say(lines, { npc = n, name = n.first })
+end
+
+function Menu.map()
+  local sc = {}
+  function sc:update() if In.a or In.b then Scene.pop() end end
+  function sc:draw() Secret.schematic(W.mall.name:upper() .. " DIRECTORY", false) end
+  Scene.push(sc)
 end
 
 function Menu.store(s)

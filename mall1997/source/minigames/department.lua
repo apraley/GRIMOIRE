@@ -147,7 +147,7 @@ local function update(st)
         Sfx.tick()
         if c.pos > #c.seq then
           st.folded = st.folded + 1
-          say(st, c.miss == 0 and "Crisp fold. Gap-level quality." or "Folded. Kinda lumpy.", math.max(20, 100 - 20 * c.miss), true)
+          say(st, c.miss == 0 and "Crisp fold. Department-store quality." or "Folded. Kinda lumpy.", math.max(20, 100 - 20 * c.miss), true)
         end
       else
         c.miss = c.miss + 1
