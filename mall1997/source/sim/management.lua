@@ -95,7 +95,7 @@ end
 -- ------------------------------------------------------------------ policies
 Management.POLICIES = {
   teenEscort = { name = "Parental Escort Policy", txt = "Kids under 16 need a parent with them after 6 PM on Fridays and Saturdays." },
-  noSkate = { name = "No Wheels", txt = "No skateboards, rollerblades or Heelys in the mall." },
+  noSkate = { name = "No Wheels", txt = "No skateboards, rollerblades or roller skates in the mall." },
   extraGuard = { name = "Extra Security", txt = "Mall security added a guard to the evening shift." },
   teenNightPaused = { name = "Teen Night Suspended", txt = "Teen Night is cancelled until further notice." },
   walkerHours = { name = "Mall Walkers Welcome", txt = "Doors open at 6:30 AM for mall walkers." },
@@ -142,7 +142,7 @@ function Management.review(day, r)
     repeal("teenEscort", "quiet month, and the food court sales fell")
   end
   if fights >= 2 and not Management.has("loitering") and r:chance(0.5) then enact("loitering", day) end
-  if thefts >= 6 and not Management.has("extraGuard") then enact("extraGuard", day) end
+  if thefts >= 14 and not Management.has("extraGuard") then enact("extraGuard", day) end
   if fights >= 4 and not Management.has("teenNightPaused") then enact("teenNightPaused", day)
   elseif Management.has("teenNightPaused") and day - W.mall.policies.teenNightPaused > 21 then
     repeal("teenNightPaused", "a petition with 212 signatures")

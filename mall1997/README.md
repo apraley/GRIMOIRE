@@ -12,6 +12,20 @@ court before you do.
 
 > "I can live inside this place."
 
+## Screenshots
+
+These were rendered headlessly by `tools/screens.lua`, using the software
+rasterizer in `tools/pdraster.lua` (an approximation of the Playdate system
+font). They are shown at 2x.
+
+| | |
+|---|---|
+| ![title](docs/screens/01_title.png) | ![concourse](docs/screens/04_concourse.png) |
+| ![storefronts](docs/screens/05_storefronts.png) | ![food court](docs/screens/06_food_court.png) |
+| ![record store](docs/screens/07_music_store.png) | ![arcade](docs/screens/08_arcade.png) |
+| ![dialog](docs/screens/09_dialog.png) | ![record bin](docs/screens/10_browse.png) |
+| ![record store shift](docs/screens/15_minigame_record.png) | ![the model](docs/screens/17_model.png) |
+
 ## Building and running
 
 1. Install the Playdate SDK and set `PLAYDATE_SDK_PATH`.

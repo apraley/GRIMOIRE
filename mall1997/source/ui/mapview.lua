@@ -311,6 +311,39 @@ function MapView.render(a)
       pat("gray"); gfx.fillRect(px, py + 4, o.w * T, 6); black(); gfx.drawRect(px, py + 4, o.w * T, 6)
     end
   end
+  -- stenciled labels over service doors and labelled doors
+  if a.kind == "service" or a.kind == "back" or a.kind == "office" or a.kind == "maint" or a.kind == "dock"
+    or a.kind == "tunnel" or a.kind == "shelter" then
+    local done = {}
+    for _, d in ipairs(a.doors) do
+      local label = d.label
+      if not label and d.store and W.stores[d.store] then label = W.stores[d.store].name:upper() end
+      if label and label ~= "?" and not done[label .. d.y] then
+        done[label .. d.y] = true
+        local px, py = d.x * T + 8, d.y * T
+        -- label sits on the wall side of the door
+        local ty
+        if d.y >= a.h // 2 then ty = py + T else ty = py - 14 end
+        if ty < 0 then ty = py + T end
+        if ty > a.h * T - 14 then ty = py - 14 end
+        local lw = math.min(90, Gfx.textW(label) + 6)
+        white(); gfx.fillRect(px - lw // 2, ty, lw, 14); black(); gfx.drawRect(px - lw // 2, ty, lw, 14)
+        local l = label
+        while #l > 2 and Gfx.textW(l) > lw - 6 do l = l:sub(1, #l - 1) end
+        Gfx.text(l, px, ty - 2, { align = "center" })
+      end
+    end
+  end
+  -- cinema lobby: numbered theater doors
+  if a.kind == "store" and a.store == W.mall.cinema then
+    for _, o in ipairs(a.objs) do
+      if o.kind == "screen" then
+        local px, py = o.x * T, o.y * T
+        white(); gfx.fillRect(px - 2, py + T + 1, 20, 14); black(); gfx.drawRect(px - 2, py + T + 1, 20, 14)
+        Gfx.text(tostring(o.screen), px + 8, py + T - 1, { align = "center", bold = true })
+      end
+    end
+  end
   gfx.popContext()
   return img
 end

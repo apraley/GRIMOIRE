@@ -254,7 +254,7 @@ function Stores.weekly(day)
       end
       -- a struggling store gets a new manager, or closes
       if not s.closing and s.type ~= "department" and s.type ~= "cinema" and s.id ~= W.mall.arcade then
-        s.patience = s.patience or (2 + U.hash(W.seed, s.id) % 7)
+        s.patience = s.patience or (3 + U.hash(W.seed, s.id) % 7)
         if ((s.trouble or 0) >= s.patience or (s.cash < -60000 * 100)) and closingsThisWeek < 2 then
           closingsThisWeek = closingsThisWeek + 1
           Stores.announceClosing(s, day, r)
@@ -401,7 +401,7 @@ function Stores.leasing(day, r)
     if sl.kind == "store" and not sl.store and not sl.abandoned then
       if sl.coming then
         if sl.coming.day <= day then Stores.openNew(sl, day, r) end
-      elseif day - (sl.vacantSince or 0) >= 10 and r:chance(0.3) then
+      elseif day - (sl.vacantSince or 0) >= 7 and r:chance(0.45) then
         local typ = Trends.pickNewType(r)
         sl.coming = { day = day + r:i(10, 24), type = typ }
         W.mall.nextOpening = sl.id
@@ -484,8 +484,10 @@ function Stores.staffing(day)
           n.mood = U.clamp(n.mood + 15, 0, 100)
           for k = #n.wants, 1, -1 do if n.wants[k].k == "quit" then table.remove(n.wants, k) end end
           W.stats.quits = W.stats.quits + 1
-          local why = r:pick({ "without notice", "after a shouting match", "to go back to school", "for a job at the outlet mall",
-            "because of the manager", "by leaving the keys on the counter" })
+          local whys = { "without notice", "after a shouting match", "to go back to school", "for a job at the car wash",
+            "because of the manager", "by leaving the keys on the counter" }
+          if W.mall.outlet then whys[#whys + 1] = "for a job at the new outlet mall" end
+          local why = r:pick(whys)
           Timeline.add("people", NPCGen.name(n) .. " quit " .. s.name .. " " .. why .. ".", 1)
           Memory.add(n, "quit", "quit " .. s.name)
           Rumors.add("quit", n.id, n.first .. " quit " .. s.name .. " " .. why, 4, { n.id }, { store = s.id })

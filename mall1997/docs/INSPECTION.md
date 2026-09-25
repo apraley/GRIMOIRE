@@ -79,27 +79,45 @@ announced in the timeline but did nothing).
 - **Cabinet rotation.** Each month the arcade replaces its least-played novelty
   machine.
 
-## Current 30-day numbers (seed 1997, with the autopilot player)
+## Current numbers
+
+### 30 days (seed 1997, with the autopilot player)
 
 - **Mall:** 136 stores (5 department stores, 11 food stalls, cinema, arcade),
-  508 NPCs, and 110–185 people physically in the mall at noon or 7 PM.
+  508 NPCs, and 100–185 people physically in the mall at noon or 7 PM.
 - **Stores:**
-  - 19 stores' popularity moved by 8 or more points;
-  - cash went down at 72 stores and up at 64;
-  - 22 stores are in trouble and 13 are running sales;
-  - 2 closed and 3 new tenants opened, shaped by current trends ("Zoot &
-    Suit" during the swing revival);
-  - 2 feuds, with incidents and mediation.
+  - 17 stores' popularity moved by 8 or more points;
+  - cash went down at 71 stores and up at 65; 24 are in trouble and 18 are
+    running sales;
+  - five closings were announced, with liquidation sales;
+  - five managers were fired and replaced, and two more were brought in from
+    out of town;
+  - two trend-shaped tenants opened ("Zoot & Suit" during the swing revival).
 - **People:**
-  - 29 hires, 7 quits and 3 manager changes;
-  - 6 new couples, 7 breakups and 27 partner changes;
-  - 519 of 523 NPCs visited the mall, averaging 8.8 distinct areas each.
-- **Rumors:** 53 live rumors. The most widespread are mall myths that 100–290
-  people have heard. Exaggerated variants appear ("Nadine is secretly engaged
-  to...").
-- **Crime:** 43 NPC thefts, 17 caught, and one store upgraded its security
-  after a wave of thefts.
-- **Arcade:** a tournament with 30+ entrants and 3 new records.
-- **Player bot:** hired as a restaurant clerk and promoted to shift lead. It
-  was caught once and got away with one theft, saw several movies, and 46 NPCs
-  heard rumors about it.
+  - 24 hires, 9 quits and 9 manager changes;
+  - 5 new couples and 14 partner changes, plus dates and anniversaries;
+  - 517 of 519 NPCs visited the mall, averaging 8.9 distinct areas each.
+- **Rumors:** 48 live rumors. Mall myths reach about 230 people. The player
+  bot was talked about by 75 NPCs.
+- **Crime:** 40 NPC thefts, 22 caught.
+- **Arcade:** a tournament with 36 entrants and 3 new records.
+- **Save:** about 715 KB.
+
+Across seeds 7, 42 and 1234, the same 30 days produce:
+
+| | Feuds | Closures | Couples | Manager changes | Openings |
+|---|---|---|---|---|---|
+| Range | 1–2 | 0–1 | 3–9 | 6–14 | 2–5 |
+
+The range is 0–1 closures because most stores that announce closing in the
+first month still have a liquidation sale running when day 30 ends.
+
+### 150 days (seed 1997, to late January 1998)
+
+- **Stores:** 33 closures, 27 openings, 18 feuds and 46 manager changes.
+- **People:** 31 couples and 21 breakups.
+- **Crime:** 123 thefts (68 caught) and 5 store security upgrades.
+- **Calendar and management events:** a No Wheels policy, Black Friday, the
+  mall Santa, *The Unsinkable* opening on Dec 19 (which started a trend),
+  New Year 1998, and the fountain renovation.
+- **January slump:** 15 of 130 stores were profitable in the last week.

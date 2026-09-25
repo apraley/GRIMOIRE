@@ -99,7 +99,7 @@ end
 local function interiorSize(s)
   if s.type == "department" or s.type == "cinema" or s.type == "arcade" then return 25, 15 end
   local w = U.clamp((s.w or 5) * 3 + 5, 17, 25)
-  return w, 14
+  return w, 13 -- fits under the HUD without scrolling
 end
 Areas.interiorSize = interiorSize
 

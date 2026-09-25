@@ -93,23 +93,24 @@ function Security.weekly(day)
   W.mall.theftHist = W.mall.theftHist or {}
   W.mall.theftHist[#W.mall.theftHist + 1] = wave
   U.trim(W.mall.theftHist, 12)
-  if wave >= 5 then
-    local worst, wv = nil, 0
-    for _, s in ipairs(W.stores) do
-      if s.open and (s.theft or 0) > wv then worst, wv = s, s.theft end
-    end
+  -- a store that keeps getting hit upgrades its security
+  local worst, wv = nil, 0
+  for _, s in ipairs(W.stores) do
+    if s.open and (s.theft or 0) > wv then worst, wv = s, s.theft end
+  end
+  if worst and wv >= 4 and worst.sec < 3 then
+    worst.sec = worst.sec + 1
+    worst.theft = 0
+    Areas.invalidate("s" .. worst.id)
+    Timeline.add("crime", "After a rash of shoplifting, " .. worst.name .. " installed more security.", 2)
+  end
+  -- a mall-wide wave brings more cameras
+  if wave >= 13 then
     local added = 0
     for _, c in ipairs(W.cams) do if not c.on and added < 2 then c.on = true; added = added + 1 end end
     local x = r:i(MallGen.ANCHOR_W + 4, W.mall.w - MallGen.ANCHOR_W - 4)
     W.cams[#W.cams + 1] = { area = "c" .. r:i(1, 2), x = x, y = 5, r = 7, on = true, new = day }
-    if worst and worst.sec < 3 then
-      worst.sec = worst.sec + 1
-      worst.theft = 0
-      Areas.invalidate("s" .. worst.id)
-      Timeline.add("crime", "After a rash of shoplifting, " .. worst.name .. " installed more security.", 2)
-    else
-      Timeline.add("crime", "Mall security installed new cameras after " .. wave .. " thefts this week.", 2)
-    end
+    Timeline.add("crime", "Mall security installed new cameras after " .. wave .. " thefts in one week.", 2)
     Areas.invalidate("c1"); Areas.invalidate("c2")
   end
   W.mall.theftWeek = 0

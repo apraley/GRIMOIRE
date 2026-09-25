@@ -367,9 +367,11 @@ function ex:update()
   -- camera
   local tw, th = a.w * T, a.h * T
   self.camx = U.clamp(p.x - 200, 0, math.max(0, tw - 400))
-  self.camy = U.clamp(p.y - 130, -18, math.max(-18, th - 240))
+  -- the HUD covers the top 20px: let the camera show the top row fully when
+  -- you're near it, and the bottom row (where exits are) when you're near that
+  self.camy = U.clamp(p.y - 124, -22, math.max(-22, th - 240))
   if tw < 400 then self.camx = (tw - 400) // 2 end
-  if th < 222 then self.camy = (th - 240) // 2 - 9 end
+  if th <= 216 then self.camy = (th - 220) // 2 - 20 end
   for i = #self.bubbles, 1, -1 do
     local b = self.bubbles[i]
     b.t = b.t - 1
