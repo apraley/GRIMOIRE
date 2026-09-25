@@ -6,10 +6,10 @@ function CalService.profile(key)
 	return Store.data.calibrations[key]
 end
 
-function CalService.ensure(key)
+function CalService.ensure(key, recommended)
 	local p = Store.data.calibrations[key]
 	if p == nil then
-		p = Calibration.new(key, {})
+		p = Calibration.new(key, { recommended = recommended == true })
 		Store.data.calibrations[p.key] = p
 		Store.markDirty()
 	end
@@ -46,7 +46,7 @@ function CalService.recommend(printerId, material, manufacturer)
 			return {
 				nozzle = p.nozzleTemp > 0 and p.nozzleTemp or info.nozzle,
 				bed = p.bedTemp > 0 and p.bedTemp or info.bed,
-				flow = p.flowRatio > 0 and p.flowRatio or nil,
+				flow = p.flowRatio,
 				profile = p, level = c[2],
 			}
 		end
@@ -79,7 +79,7 @@ end
 -- When makeRecommended, the profile's temps flow into matching spools'
 -- favourite temps and into queued (not yet started) jobs using this combo.
 function CalService.save(procId, key, fields, notes, makeRecommended)
-	local p = CalService.ensure(key)
+	local p = CalService.ensure(key, makeRecommended)
 	for k, v in pairs(fields) do
 		if v ~= nil then p[k] = v end
 	end
@@ -97,7 +97,9 @@ function CalService.save(procId, key, fields, notes, makeRecommended)
 	while #runs > 120 do table.remove(runs, 1) end
 
 	local touchedJobs = 0
-	if p.recommended then
+	-- Only temperature results change spools and queued jobs.
+	local temps = fields.nozzleTemp ~= nil or fields.bedTemp ~= nil
+	if p.recommended and temps then
 		for _, s in ipairs(Store.data.spools) do
 			if s.material == p.material and (p.manufacturer == "ANY" or s.manufacturer == p.manufacturer) then
 				if fields.nozzleTemp then s.favNozzle = fields.nozzleTemp end
@@ -109,9 +111,14 @@ function CalService.save(procId, key, fields, notes, makeRecommended)
 				and j.printerId == p.printerId and j.material == p.material then
 				local s = j.spoolId and Store.spool(j.spoolId) or nil
 				local maker = s and s.manufacturer or nil
-				if p.manufacturer == "ANY" or maker == p.manufacturer then
+				-- Jobs with hand-set temps (no profileKey) keep them.
+				local manual = j.manualTemps
+				if (p.manufacturer == "ANY" or maker == p.manufacturer) and not manual then
+					local before = j.nozzleTemp .. "/" .. j.bedTemp .. "/" .. j.profileKey
 					Queue.applyProfile(j, true)
-					touchedJobs = touchedJobs + 1
+					if j.nozzleTemp .. "/" .. j.bedTemp .. "/" .. j.profileKey ~= before then
+						touchedJobs = touchedJobs + 1
+					end
 				end
 			end
 		end
@@ -129,12 +136,6 @@ end
 function CalService.delete(p)
 	Store.data.calibrations[p.key] = nil
 	Store.markDirty()
-end
-
--- Days since the profile was last touched (nil if never).
-function CalService.ageDays(p, now)
-	if p == nil or p.updatedAt == 0 then return nil end
-	return ((now or Clock.now()) - p.updatedAt) // U.DAY
 end
 
 -- Context passed to procedure steps.

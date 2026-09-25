@@ -23,9 +23,16 @@ end
 function Queue.applyProfile(j, force)
 	local spool = j.spoolId and Store.spool(j.spoolId) or nil
 	local rec = CalService.recommend(j.printerId, j.material, spool and spool.manufacturer or nil)
-	if force or j.nozzleTemp == 0 then j.nozzleTemp = rec.nozzle end
-	if force or j.bedTemp == 0 then j.bedTemp = rec.bed end
-	j.profileKey = rec.profile and rec.profile.key or ""
+	-- Manual temperatures (set in the editor) are left alone, and so is the
+	-- job's profileKey, so history never credits a profile for them.
+	if force then j.manualTemps = false end
+	if force or j.nozzleTemp == 0 then
+		j.nozzleTemp = rec.nozzle
+		if force or j.bedTemp == 0 then j.bedTemp = rec.bed end
+		j.profileKey = rec.profile and rec.profile.key or ""
+	elseif j.bedTemp == 0 then
+		j.bedTemp = rec.bed
+	end
 	return rec
 end
 
@@ -45,22 +52,6 @@ function Queue.add(fields)
 	Store.data.jobs[#Store.data.jobs + 1] = j
 	Store.markDirty()
 	Events.emit("job.added", { job = j })
-	return j
-end
-
-function Queue.update(j, fields)
-	local spoolChanged = fields.spoolId ~= nil and fields.spoolId ~= j.spoolId
-	for k, v in pairs(fields) do j[k] = v end
-	if spoolChanged then
-		local s = Store.spool(j.spoolId)
-		if s then
-			j.material = s.material
-			j.color = s.color
-		end
-		Queue.applyProfile(j, true)
-	end
-	Job.normalize(j)
-	Store.markDirty()
 	return j
 end
 
@@ -115,8 +106,8 @@ function Queue.move(j, delta, view)
 	local _, b = U.findById(jobs, other.id)
 	-- Move j to other's slot in the master list; everything between shifts.
 	U.moveItem(jobs, a, b)
-	-- Keep the view consistent for the caller.
-	U.moveItem(view, vi, ti)
+	-- Keep the view consistent for the caller (unless it *is* the list).
+	if view ~= jobs then U.moveItem(view, vi, ti) end
 	Store.markDirty()
 	return ti
 end

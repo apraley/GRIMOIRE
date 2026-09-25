@@ -76,7 +76,8 @@ end
 Schema.migrations[4] = function(d)
 	d.schema = 4
 	local m = d.maintenance or {}
-	local tasks = U.asList(m.tasks or m)
+	-- v1 stored the task list directly; later shapes nest it under `tasks`.
+	local tasks = U.asList(m.tasks or (m[1] ~= nil and m) or {})
 	for _, t in ipairs(tasks) do
 		if type(t.interval) == "table" then
 			if t.interval.kind == "hours" then t.intervalHours = t.interval.value
@@ -245,6 +246,8 @@ function Schema.repair(d)
 	end
 	d.printLog = log
 	d.providerState = type(d.providerState) == "table" and d.providerState or {}
+	if type(d.pendingFailure) ~= "table" then d.pendingFailure = nil end
+	if type(d.runout) ~= "table" then d.runout = nil end
 
 	-- There must always be at least one printer to attach jobs to.
 	if #d.printers == 0 then

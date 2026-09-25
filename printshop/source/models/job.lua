@@ -20,6 +20,7 @@ Job.DEFAULTS = {
 	nozzleTemp = 0,     -- 0 = use recommended profile at print time
 	bedTemp = 0,
 	profileKey = "",
+	manualTemps = false, -- temps set by hand in the editor; profiles leave them
 	attempts = 0,
 	archived = false,
 	createdAt = 0,
@@ -50,6 +51,7 @@ function Job.normalize(j)
 	j.attempts = math.max(0, U.int(j.attempts, 0))
 	j.shape = U.oneOf(j.shape, Enums.SHAPES, "cube")
 	j.archived = j.archived == true
+	j.manualTemps = j.manualTemps == true
 	j.createdAt = U.int(j.createdAt, 0)
 	j.startedAt = U.int(j.startedAt, 0)
 	j.completedAt = U.int(j.completedAt, 0)

@@ -25,6 +25,11 @@ function StatsScreen:refresh()
 end
 
 function StatsScreen:update()
+	-- Data changed underneath (a print finished, a menu action ran): refresh.
+	if self.rev ~= Memo.rev and true then
+		self.rev = Memo.rev
+		self:refresh()
+	end
 	self.list:update()
 	local h = Input.horizontal()
 	if h ~= 0 then
@@ -57,7 +62,8 @@ end
 
 function StatsScreen:drawOverview()
 	local o = Stats.overall()
-	Draw.window(4, 34, 190, 190, { title = "ALL TIME" })
+	-- History keeps the latest 500 attempts; say so once it's been trimmed.
+	Draw.window(4, 34, 190, 190, { title = #Store.data.history >= 500 and "LAST 500" or "ALL TIME" })
 	local y = 46
 	local function row(l, v) Draw.row(l, v, 14, y, 170) y = y + 12 end
 	row("PRINTS", tostring(o.prints))

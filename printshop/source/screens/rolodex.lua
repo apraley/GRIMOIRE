@@ -133,6 +133,11 @@ function RolodexScreen:pickLocation(s)
 end
 
 function RolodexScreen:update()
+	-- Data changed underneath (a print finished, a menu action ran): refresh.
+	if self.rev ~= Memo.rev and self.flip == 0 then
+		self.rev = Memo.rev
+		self:refresh()
+	end
 	if self.flip > 0 then self.flip = math.max(0, self.flip - 0.25) end
 	local t = self.ticker:update()
 	if t ~= 0 then self:flipBy(t > 0 and 1 or -1) end

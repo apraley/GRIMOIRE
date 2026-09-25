@@ -112,7 +112,7 @@ function App.init()
 	if r.migratedFrom then
 		Toast.show("DATA UPGRADED FROM V" .. r.migratedFrom, "check")
 	elseif r.newer then
-		Toast.show("SAVE IS FROM A NEWER VERSION", "warn")
+		Toast.show("NEWER SAVE: READ-ONLY. UPDATE PRINT SHOP", "warn")
 	elseif r.backup and r.seeded then
 		Toast.show("SAVE WAS DAMAGED; BACKED UP", "warn")
 	end
@@ -144,6 +144,8 @@ function App.subscribe()
 		end
 	end)
 	Events.on("print.error", function(e)
+		-- A cancel from our own Watch screen is resolved right there.
+		if e.pending and e.pending.cancelled then return end
 		Sfx.play("fail")
 		Toast.show("PRINT FAILED: LOG THE CAUSE", "warn")
 		-- Jump straight to the failure log when the user is watching.
@@ -151,6 +153,9 @@ function App.subscribe()
 		if top and (getmetatable(top) == HomeScreen or getmetatable(top) == WatchScreen) then
 			Screens.push(FailureScreen.new())
 		end
+	end)
+	Events.on("print.lost", function(e)
+		Toast.show(e.job.name .. ": MARK IT DONE OR FAILED", "warn")
 	end)
 	Events.on("print.runout", function()
 		Sfx.play("error")
@@ -242,7 +247,9 @@ function App.update()
 	Draw.tick(dt)
 	playdate.timer.updateTimers()
 
-	Printing.update(dt)
+	-- The printer keeps working while the device sleeps or the system menu
+	-- is open: hand the provider the full real time, not the clamped frame.
+	Printing.update(dt + Clock.gapMs)
 	-- Provider state is saved every 30s while something is happening.
 	App.persistMs = App.persistMs + dt
 	App.minuteMs = (App.minuteMs or 0) + dt

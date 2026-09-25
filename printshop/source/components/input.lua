@@ -112,7 +112,3 @@ function CrankTicker:reset()
 	self.acc = 0
 end
 
--- Fractional position within the current detent, -1..1 (for animation).
-function CrankTicker:phase()
-	return self.acc / self.deg
-end

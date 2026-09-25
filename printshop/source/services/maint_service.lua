@@ -99,6 +99,7 @@ function MaintService.logEvent(kind, name, note, printerId)
 	})
 	local log = Store.data.maintenance.log
 	log[#log + 1] = e
+	while #log > 200 do table.remove(log, 1) end
 	Store.markDirty()
 	return e
 end

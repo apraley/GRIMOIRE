@@ -387,8 +387,9 @@ end)
 
 local function runDemo(seconds)
 	local steps = math.ceil(seconds / 10)
+	-- Simulated seconds come from frame time x demo speed; the wall clock
+	-- stays put so no sleep gap is added on top.
 	for _ = 1, steps do
-		MOCK.advance(10)
 		MOCK.frame(nil, 0, 10000 / Store.settings().demoSpeed)
 	end
 end
@@ -426,6 +427,16 @@ test("demo print runs HEATING -> PRINTING -> COMPLETE and logs history", functio
 	near(s.remainingGrams, g - j.estGrams, 1e-6)
 	eq(s.dryness, "DRY", "sealed spool opened by use")
 	ok(#Store.data.printLog > 0)
+end)
+
+test("time spent asleep (wall-clock gap) still advances the print", function()
+	boot({})
+	Store.settings().demoChaos = false
+	local st = Printing.provider.st
+	local before = st.elapsedSec
+	MOCK.advance(20)                      -- device slept 20 seconds
+	MOCK.frame(nil, 0, 33)
+	near(st.elapsedSec - before, 20 * Store.settings().demoSpeed, 60, "sleep simulated")
 end)
 
 test("demo print fast-forwards while the app was closed", function()
@@ -1052,6 +1063,161 @@ test("fuzz: random input across screens never crashes", function()
 	App.saveAll()
 	boot({ printshop = MOCK.files.printshop })
 	ok(not Store.loadReport.seeded, "fuzzed data reloads")
+end)
+
+---------------------------------------------------------------------------
+-- regressions from the code review
+
+test("review: long printer job names are adopted once, not every frame", function()
+	boot({})
+	local printer = Store.activePrinter()
+	printer.provider = "bridge"
+	Printing.reload()
+	local long = "A VERY LONG SLICER FILE NAME FOR A PLANTER V12 FINAL"
+	local before = #Store.data.jobs
+	for _ = 1, 5 do
+		Printing.provider:ingest({ state = "PRINTING", temps = {}, progress = { pct = 5, layer = 1, totalLayers = 50 },
+			job = { name = long, material = "PLA" } })
+		Printing.drain()
+	end
+	eq(#Store.data.jobs, before + 1)
+	printer.provider = "demo"
+	Printing.reload()
+end)
+
+test("review: editors merge only user edits over live records", function()
+	boot({})
+	Store.settings().demoChaos = false
+	local j = Store.job("j1")
+	Screens.push(JobEditScreen.new(j))
+	local ed = Screens.top()
+	ed.draft.notes = "EDITED WHILE PRINTING"
+	runDemo(95 * 60)                           -- print finishes meanwhile
+	eq(j.status, "COMPLETE")
+	ed:save()
+	eq(j.status, "COMPLETE", "status not rolled back")
+	eq(j.notes, "EDITED WHILE PRINTING")
+	local s = Store.spool("s2")
+	Screens.push(SpoolEditScreen.new(s))
+	local se = Screens.top()
+	se.draft.location = "DRAWER"
+	Filament.consume("s2", 40, "print", nil, "meanwhile")
+	local left = s.remainingGrams
+	se:save()
+	eq(s.remainingGrams, left, "grams not rolled back")
+	eq(s.location, "DRAWER")
+	Screens.popToRoot()
+end)
+
+test("review: a pending failure can't be double counted", function()
+	boot({})
+	local j = Store.job("j1")
+	local p = Printing.provider
+	p.st.failAt = p.st.elapsedSec / p.st.totalSec + 0.01
+	p.st.failCause = "clog"
+	Screens.push(StatsScreen.new())
+	runDemo(10 * 60)
+	ok(Store.data.pendingFailure)
+	local hist = #Store.data.history
+	Printing.markFailed(j, "clog", "", 5, 0.5)
+	eq(Store.data.pendingFailure, nil, "manual log settles the pending failure")
+	eq(#Store.data.history, hist + 1)
+	eq(Printing.snapshot().state, "IDLE")
+	Screens.popToRoot()
+end)
+
+test("review: bridge completion while the app was closed is not lost", function()
+	boot({})
+	local printer = Store.activePrinter()
+	printer.provider = "bridge"
+	Printing.reload()
+	local p = Printing.provider
+	local doc = function(state) return { state = state, temps = {}, progress = { pct = state == "COMPLETE" and 100 or 50,
+		layer = 10, totalLayers = 20 }, job = { name = "Bridge Thing", material = "PLA", grams = 9 } } end
+	p:ingest(doc("PRINTING"))
+	Printing.drain()
+	local j = U.find(Store.data.jobs, function(x) return x.name == "BRIDGE THING" end)
+	eq(j.status, "PRINTING")
+	App.saveAll()
+	boot({ printshop = MOCK.files.printshop })
+	eq(Store.activePrinter().provider, "bridge")
+	Printing.provider:ingest(doc("COMPLETE"))
+	Printing.drain()
+	j = Store.job(j.id)
+	eq(j.status, "COMPLETE", "completion derived after restart")
+	-- Cleared on the printer without us seeing the end: job returns to the queue.
+	local k = Queue.add({ name = "OTHER THING", status = "QUEUED" })
+	Printing.provider:ingest({ state = "PRINTING", temps = {}, progress = { pct = 5 }, job = { name = "OTHER THING" } })
+	Printing.drain()
+	eq(k.status, "PRINTING")
+	Printing.provider:ingest({ state = "IDLE", temps = {}, progress = {} })
+	Printing.drain()
+	eq(k.status, "QUEUED")
+	Store.activePrinter().provider = "demo"
+	Printing.reload()
+end)
+
+test("review: an orphaned ERROR plate is cleared on switch-back", function()
+	boot({})
+	Store.printer("p2").provider = "demo"
+	ok(Printing.cancel())
+	ok(Store.data.pendingFailure)
+	Printing.switchPrinter("p2")
+	Printing.resolvePending({ asCancel = true })
+	Printing.switchPrinter("p1")
+	eq(Printing.snapshot().state, "IDLE", "not stuck in ERROR")
+	ok(Printing.canStart(Store.job("j6")))
+end)
+
+test("review: SAVE ONLY does not recommend; non-temp runs keep job temps", function()
+	boot({})
+	local key = "p1|PETG|ESUN"
+	local p = CalService.save("temptower", key, { nozzleTemp = 231 }, "", nil)
+	eq(p.recommended, false)
+	local j = Queue.add({ name = "X", spoolId = "s5" })
+	eq(j.nozzleTemp, Enums.MATERIAL_INFO.PETG.nozzle, "not applied")
+	-- Manual temps survive a recommended temperature calibration.
+	local m = Queue.add({ name = "MANUAL", spoolId = "s4" })
+	m.nozzleTemp, m.manualTemps, m.profileKey = 251, true, ""
+	local a = Queue.add({ name = "AUTO", spoolId = "s4" })
+	local _, _, touched = CalService.save("temptower", "p1|PETG|OVERTURE", { nozzleTemp = 238 }, "", true)
+	eq(m.nozzleTemp, 251)
+	eq(a.nozzleTemp, 238)
+	ok(touched >= 1)
+	-- A flow run doesn't touch temps at all.
+	local _, _, t2 = CalService.save("flow", "p1|PETG|OVERTURE", { flowRatio = 0.96 }, "", true)
+	eq(t2, 0)
+	-- Zero is a real value for non-temperature fields.
+	local zp = CalService.save("firstlayer", "p1|PLA|BAMBU", { zOffset = 0 }, "", true)
+	eq(Calibration.fmtField(zp, Calibration.FIELDS[9]), "0.00mm")
+end)
+
+test("review: captain news never shows raw slots", function()
+	boot({})
+	Store.data.captain.inbox = {}
+	Filament.consume("s10", 400, "manual", nil, "big")
+	local j = Queue.add({ name = "NO SPOOL JOB" })
+	Printing.markComplete(j)
+	Printing.markFailed(Queue.add({ name = "NO SPOOL FAIL" }), "stringing", "", 1, 0.1)
+	for _ = 1, 10 do
+		local n = Captain.nextNews()
+		if n == nil then break end
+		ok(not string.find(n.text, "[{}]"), n.text)
+		ok(not string.find(n.text, "  "), "double space: " .. n.text)
+	end
+end)
+
+test("review: migration and list repair edge cases", function()
+	local d = Schema.migrations[4]({ maintenance = { log = { { id = "l1" } } } })
+	eq(#d.maintenance.tasks, 0, "no invented task")
+	local list = {}
+	for i = 1, 12 do list[tostring(i)] = { id = "x" .. i } end
+	local out = U.asList(list)
+	for i = 1, 12 do eq(out[i].id, "x" .. i) end
+	local q = { { id = "a" }, { id = "b" }, { id = "c" } }
+	Store.data.jobs = q
+	eq(Queue.move(q[1], 1), 2)
+	eq(Store.data.jobs[2].id, "a")
 end)
 
 ---------------------------------------------------------------------------

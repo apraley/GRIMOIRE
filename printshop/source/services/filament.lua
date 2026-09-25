@@ -72,13 +72,6 @@ function Filament.add(fields)
 	return s
 end
 
-function Filament.update(s, fields)
-	for k, v in pairs(fields) do s[k] = v end
-	Spool.normalize(s)
-	Store.markDirty()
-	return s
-end
-
 -- Buy another of the same: a sealed clone with fresh counters.
 function Filament.restock(s)
 	return Filament.add({
@@ -235,23 +228,6 @@ function Filament.totals()
 		end
 	end
 	return t
-end
-
--- Best spool for a job: same material (+color, +maker if given) with the most
--- filament left. Returns spool or nil.
-function Filament.findMatch(material, color, manufacturer, minGrams)
-	local best, bestScore = nil, -1
-	for _, s in ipairs(Store.data.spools) do
-		if not s.archived and s.material == material and s.remainingGrams >= (minGrams or 0) then
-			local score = 1
-			if color and s.color == color then score = score + 4 end
-			if manufacturer and s.manufacturer == manufacturer then score = score + 2 end
-			if s.dryness == "DAMP" or s.dryness == "WET" then score = score - 1 end
-			score = score + s.remainingGrams / 10000
-			if score > bestScore then best, bestScore = s, score end
-		end
-	end
-	return best
 end
 
 -- Cost of printing `grams` from spool s.

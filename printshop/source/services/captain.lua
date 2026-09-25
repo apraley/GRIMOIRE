@@ -21,8 +21,12 @@ local function cap() return Store.data.captain end
 local function inbox(kind, data, mood, priority)
 	local box = cap().inbox
 	box[#box + 1] = { kind = kind, data = data, mood = mood or "neutral", priority = priority or 1, at = Clock.now() }
-	-- Highest priority first, then newest.
-	U.stableSort(box, function(a, b) return a.priority > b.priority end)
+	-- Highest priority first, then newest; the oldest low-priority item is
+	-- the one dropped when the inbox is full.
+	U.stableSort(box, function(a, b)
+		if a.priority ~= b.priority then return a.priority > b.priority end
+		return a.at > b.at
+	end)
 	while #box > 8 do table.remove(box) end
 	Captain.tickerAge = 99999
 	Store.markDirty()
@@ -50,8 +54,11 @@ function Captain.init()
 	end)
 	Events.on("spool.low", function(e)
 		local s = e.spool
+		local days = Filament.daysUntilEmpty(s)
+		local nxt = Queue.nextFor(Store.activePrinter().id)
 		inbox(e.empty and "empty_spool" or "low_spool", { spool = Spool.shortLabel(s), grams = U.fmtGrams(s.remainingGrams),
-			material = s.material }, "stern", 2)
+			material = s.material, next = nxt and nxt.name or "Benchy",
+			days = days and ("At this rate, empty in " .. days .. " days.") or "" }, "stern", 2)
 	end)
 	Events.on("spool.damp", function(e)
 		local s = e.spools[1]
@@ -100,7 +107,8 @@ function Captain.compose(topic, vars, mood, rng)
 	if opener ~= "" then parts[#parts + 1] = opener end
 	parts[#parts + 1] = body
 	if closer ~= "" then parts[#parts + 1] = closer end
-	return table.concat(parts, " ")
+	local line = table.concat(parts, " ")
+	return (line:gsub("%s+", " "):gsub("%s+([%.,!?])", "%1"):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
 local function fmtCause(c)
@@ -110,6 +118,11 @@ end
 -- Converts an inbox item into { text, mood, topic }.
 function Captain.renderNews(item)
 	local d = U.copy(item.data or {})
+	-- Fallbacks so every bank line reads well without a spool or project.
+	if d.spool == nil or d.spool == "" then d.spool = "spool" end
+	if d.spoolLeft == nil or d.spoolLeft == "" then d.spoolLeft = "plenty" end
+	if d.next == nil then d.next = "Benchy" end
+	if d.days == nil then d.days = "" end
 	local topic = item.kind
 	if topic == "fail" then
 		topic = "fail_" .. (d.cause ~= "" and d.cause or "unknown")

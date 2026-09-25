@@ -191,7 +191,7 @@ function CalibRunScreen:draw()
 		Draw.window(40, 38, 320, 170, { title = title })
 		self.dial:drawBody(40, 50, 320, 150)
 		local old = self.ctx.profile and self.ctx.profile[st.field]
-		if old and old ~= 0 then
+		if old ~= nil and not (old == 0 and (st.field == "nozzleTemp" or st.field == "bedTemp")) then
 			Text.draw("PROFILE NOW: " .. self:fmtValue(st, old), 200, 188, { align = "center" })
 		end
 	elseif st.type == "check" then
@@ -217,10 +217,23 @@ function CalibRunScreen:draw()
 			local cols = math.min(5, #labels)
 			Sprites.flowGrid(200 - (cols * 50 - 6) // 2, 58, labels, self.pickIdx, cols)
 		else
-			local floorH = math.max(11, math.min(16, 150 // #labels))
+			-- Long towers (e.g. OTHER spans 180-300C) scroll in a window of
+			-- at most 11 floors around the selection.
+			local maxFloors = 11
+			local first = 1
+			if #labels > maxFloors then
+				first = U.clamp(self.pickIdx - maxFloors // 2, 1, #labels - maxFloors + 1)
+			end
+			local shown = {}
+			for i = first, math.min(#labels, first + maxFloors - 1) do shown[#shown + 1] = labels[i] end
+			local floorH = math.max(12, math.min(16, 150 // #shown))
 			local ty = 52
-			Sprites.tower(210, ty, 60, labels, self.pickIdx, floorH)
-			Draw.cursor(192, ty + (self.pickIdx - 1) * floorH + (floorH - 9) // 2, gfx.kColorBlack)
+			Sprites.tower(210, ty, 60, shown, self.pickIdx - first + 1, floorH)
+			Draw.cursor(192, ty + (self.pickIdx - first) * floorH + (floorH - 9) // 2, gfx.kColorBlack)
+			if first > 1 then Text.draw(FontData.icon.up, 236, 42, { color = "black" }) end
+			if first + #shown - 1 < #labels then
+				Text.draw(FontData.icon.down, 196, ty + #shown * floorH - 10, { color = "black" })
+			end
 		end
 		if st.style == "grid" then
 			Text.draw(st.label .. ": " .. labels[self.pickIdx], 200, 160, { color = "black", align = "center", scale = 2 })

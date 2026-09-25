@@ -5,8 +5,8 @@
 --
 -- Load path:  read -> (missing? seed) -> (corrupt? backup + seed)
 --             -> (older schema? backup + migrate) -> repair -> ready
--- A document from a *newer* app version is backed up and loaded best-effort,
--- never silently downgraded.
+-- A document from a *newer* app version is backed up, loaded best-effort
+-- and opened READ-ONLY: saving it would downgrade the file.
 
 Store = {
 	FILE = "printshop",
@@ -15,10 +15,12 @@ Store = {
 	dirty = false,
 	sinceSave = 0,
 	loadReport = {},
+	readOnly = false,   -- set when the save came from a newer app version
 	beforeSave = nil,   -- hook: flush live state (provider) into data
 }
 
 function Store.load()
+	Store.readOnly = false
 	local report = { seeded = false, migratedFrom = nil, backup = nil, newer = false }
 	local raw = nil
 	local ok, err = pcall(function() raw = playdate.datastore.read(Store.FILE) end)
@@ -41,6 +43,7 @@ function Store.load()
 		local v = Schema.versionOf(raw)
 		if v > Schema.CURRENT then
 			report.newer = true
+			Store.readOnly = true
 			report.backup = Store.FILE .. "-v" .. v
 			pcall(playdate.datastore.write, raw, report.backup)
 			data = raw
@@ -70,6 +73,7 @@ end
 
 function Store.save(force)
 	if Store.data == nil then return false end
+	if Store.readOnly then return false end
 	if not Store.dirty and not force then return true end
 	if Store.beforeSave then Store.beforeSave() end
 	local d = Store.data
@@ -104,6 +108,7 @@ end
 
 -- Erase everything and start from fresh seed data (Settings > RESET).
 function Store.reset(emptyShop)
+	Store.readOnly = false
 	pcall(playdate.datastore.delete, Store.FILE)
 	if emptyShop then
 		Store.data = Schema.repair(Seed.empty(Clock.now()))

@@ -69,17 +69,6 @@ function Common.pickSpool(title, filterMaterial, onPick, allowNone)
 	Menu.open({ title = title, items = items, maxRows = 10 })
 end
 
--- Picks a failure cause.
-function Common.pickCause(title, selected, onPick)
-	local items = {}
-	local sel = 1
-	for i, c in ipairs(Enums.FAILURE_CAUSES) do
-		if c.id == selected then sel = i end
-		items[#items + 1] = { label = c.label, action = function() onPick(c.id) end }
-	end
-	Menu.open({ title = title, items = items, sel = sel, maxRows = 10 })
-end
-
 -- Dithered "gauge" for temperatures: label, now/target, bar vs max.
 function Common.tempRow(label, now, target, x, y, w, maxT)
 	local txt = string.format("%3d/%3d", U.roundInt(now), U.roundInt(target)) .. FontData.icon.deg .. "C"

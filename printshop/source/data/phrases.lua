@@ -6,8 +6,8 @@
 -- has tens of thousands of distinct lines, chosen deterministically from the
 -- shop's state (see services/captain.lua).
 --
--- Keep lines free of '*' and '_' only for readability on 400x240; the pixel
--- font renders them fine.
+-- Slots are filled by the rules in services/captain.lua; the tests fail if
+-- any {slot} is left unfilled.
 
 Phrases = {}
 
@@ -63,7 +63,7 @@ T.complete = {
 	"{job} finished in {duration}. Not a layer out of place.",
 	"Look at that {job}. I'd sail it.",
 	"That's {prints} prints on this old tub. {job} is a fine addition.",
-	"{job} is done. {spoolLeft} left on the {spool} spool.",
+	"{job} is done. The {spool} has {spoolLeft} left.",
 	"{job} complete, and the {project} project grows.",
 	"Pop {job} off the plate gently. Flex, don't pry.",
 }
@@ -130,9 +130,6 @@ T.fail_dimension = {
 T.fail_unknown = {
 	"{job} failed, and even I can't say why. Log what ye saw; patterns show up over time.",
 	"A mystery failure on {job}. Keep notes. The sea gives up her secrets slowly.",
-}
-T.fail_generic = {
-	"That's {failures} {cause} failures on {material} / {maker} lately.",
 }
 
 T.maint_due = {

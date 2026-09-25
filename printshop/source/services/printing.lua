@@ -49,8 +49,42 @@ function Printing.init()
 	Printing.provider = p
 	-- Anything that happened while we were away (fast-forward) is handled now.
 	Printing.drain()
+	Printing.reconcile()
 	Printing.persist()
 	return p
+end
+
+-- Brings the queue and the provider back into agreement after a restart,
+-- a printer switch or a change of connection:
+--  * an ERROR plate with no failure waiting to be logged is cleared
+--    (e.g. the failure was logged while another printer was active);
+--  * a job the queue thinks is PRINTING/PAUSED, which the provider is not
+--    running, goes back to QUEUED with a log line, so it can be restarted
+--    or marked done by hand. OFFLINE bridges are left alone until they
+--    report in.
+function Printing.reconcile()
+	local p = Printing.provider
+	local printer = Store.activePrinter()
+	local st = p:getStatus().state
+	local pf = Store.data.pendingFailure
+	if st == "ERROR" and (pf == nil or pf.printerId ~= printer.id) then
+		p:acknowledge()
+		st = p:getStatus().state
+	end
+	if st == "OFFLINE" then return end
+	local running = nil
+	if st == "PRINTING" or st == "HEATING" or st == "PAUSED" then
+		running = Printing.jobForProvider(p:getCurrentJob())
+	end
+	for _, j in ipairs(Store.data.jobs) do
+		if j.printerId == printer.id and (j.status == "PRINTING" or j.status == "PAUSED") and j ~= running then
+			if not (pf and pf.jobId == j.id) then
+				j.status = "QUEUED"
+				Printing.log(j.name .. " NOT ON PRINTER; BACK IN QUEUE")
+				Store.markDirty()
+			end
+		end
+	end
 end
 
 function Printing.persist()
@@ -105,7 +139,8 @@ function Printing.jobForProvider(pjob)
 	local name = U.upper(pjob.name or "")
 	if name == "" then return nil end
 	for _, cand in ipairs(Store.data.jobs) do
-		if U.upper(cand.name) == name and not cand.archived and cand.status ~= "COMPLETE" then
+		if not cand.archived and cand.status ~= "COMPLETE"
+			and (U.upper(cand.name) == name or cand.printerJobName == name) then
 			return cand
 		end
 	end
@@ -123,10 +158,13 @@ function Printing.adoptExternalJob()
 	local printer = Store.activePrinter()
 	local j = Printing.jobForProvider(pjob)
 	if j == nil then
-		j = Queue.add({ name = U.truncate(U.upper(pjob.name or "PRINTER JOB"), 28), material = pjob.material or "OTHER",
+		local full = U.upper(pjob.name or "PRINTER JOB")
+		j = Queue.add({ name = U.truncate(full, 28), material = pjob.material or "OTHER",
 			color = pjob.color or "", status = "PRINTING", printerId = printer.id, notes = "Started on the printer.",
 			estGrams = pjob.grams or 0 })
 		j.source = "printer"
+		-- Matching key: the printer's own name for the job, untruncated.
+		j.printerJobName = full
 		j.startedAt = Clock.now()
 		j.attempts = 1
 		Printing.log("ADOPTED " .. j.name)
@@ -161,15 +199,28 @@ function Printing.handle(ev)
 	elseif ev.type == "failed" then
 		local j = Printing.jobForProvider({ jobId = ev.jobId, name = ev.name }) or Printing.currentJob()
 		Store.data.pendingFailure = {
-			jobId = j and j.id or nil, reason = ev.reason or "FAILED", cause = ev.cause,
+			jobId = j and j.id or nil, printerId = Store.activePrinter().id,
+			reason = ev.reason or "FAILED", cause = ev.cause,
 			cancelled = ev.cancelled == true, progress = ev.progress or 0, layer = ev.layer or 0,
-			durationSec = ev.durationSec or 0, grams = ev.grams or 0, preConsumed = ev.preConsumed or 0,
+			durationSec = ev.durationSec or 0,
+			-- Bridges often can't report grams: nil means "estimate from progress".
+			grams = (ev.grams and ev.grams > 0) and ev.grams or nil,
+			preConsumed = ev.preConsumed or 0,
 			nozzleTemp = ev.nozzle or 0, bedTemp = ev.bed or 0, at = Clock.now(),
 		}
 		if j then j.status = "FAILED" end
 		Store.markDirty()
 		Store.save(true)
 		Events.emit("print.error", { job = j, pending = Store.data.pendingFailure })
+	elseif ev.type == "lost" then
+		-- The printer went idle without us seeing how the job ended.
+		local j = Printing.jobForProvider({ jobId = ev.jobId, name = ev.name }) or Printing.currentJob()
+		if j and (j.status == "PRINTING" or j.status == "PAUSED") then
+			j.status = "QUEUED"
+			Printing.log(j.name .. " ENDED OFF THE RECORD")
+			Store.markDirty()
+			Events.emit("print.lost", { job = j })
+		end
 	elseif ev.type == "runout" then
 		Store.data.runout = { jobId = ev.jobId, layer = ev.layer, progress = ev.progress, at = Clock.now() }
 		Store.markDirty()
@@ -281,7 +332,7 @@ function Printing.swapSpool(newSpoolId)
 	local old = pjob.spoolId and Store.spool(pjob.spoolId) or nil
 	local already = 0
 	if p.st then already = p.st.consumed or 0 end
-	if old and old.remainingGrams > 0 then
+	if old and old.remainingGrams > 0 and Store.settings().autoConsume then
 		already = already + old.remainingGrams
 		Filament.consume(old.id, old.remainingGrams, "print", j.id, j.name .. " (RUNOUT)")
 	end
@@ -321,7 +372,9 @@ function Printing.resolvePending(details)
 	end
 	Store.data.pendingFailure = nil
 	Store.data.runout = nil
-	Printing.acknowledge()
+	if pf.printerId == nil or pf.printerId == Store.activePrinter().id then
+		Printing.acknowledge()
+	end
 	Store.save(true)
 	return rec
 end
@@ -408,6 +461,15 @@ function Printing.finish(j, outcome, d)
 		j.status = "QUEUED"
 	end
 	j.lastHistoryId = h.id
+	-- One attempt, one record: logging this job by hand settles any
+	-- failure the printer reported for it.
+	local pf = Store.data.pendingFailure
+	if pf and pf.jobId == j.id then
+		Store.data.pendingFailure = nil
+		if pf.printerId == nil or pf.printerId == Store.activePrinter().id then
+			Printing.provider:acknowledge()
+		end
+	end
 
 	Printing.log(j.name .. (outcome == "success" and " LOGGED COMPLETE" or (outcome == "failed" and (" FAILED: " .. (Enums.CAUSE_LABEL[h.cause] or "?")) or " CANCELLED")))
 	Store.markDirty()
@@ -435,6 +497,10 @@ end
 
 -- True when j is the job physically on the active provider right now.
 function Printing.isLive(j)
-	local cur = Printing.currentJob()
-	return cur ~= nil and cur.id == j.id and Printing.provider:capabilities().live
+	local p = Printing.provider
+	if not p:capabilities().live then return false end
+	local st = p:getStatus().state
+	if st ~= "PRINTING" and st ~= "HEATING" and st ~= "PAUSED" then return false end
+	local running = Printing.jobForProvider(p:getCurrentJob())
+	return running ~= nil and running.id == j.id
 end

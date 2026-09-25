@@ -19,7 +19,8 @@ function JobEditScreen.new(job)
 	else
 		draft = U.deepcopy(job)
 	end
-	local self = setmetatable({ job = job, draft = draft, isNew = isNew }, JobEditScreen)
+	local self = setmetatable({ job = job, draft = draft, isNew = isNew,
+		original = U.deepcopy(draft) }, JobEditScreen)
 	self:buildForm()
 	return self
 end
@@ -53,6 +54,7 @@ function JobEditScreen:buildForm()
 		{ label = "COLOR", kind = "enum", options = Enums.COLORS, get = function() return d.color end,
 			set = function(v) d.color = v end },
 		{ label = "PRINTER", kind = "enum",
+			hidden = function() return d.status == "PRINTING" or d.status == "PAUSED" end,
 			options = function() return U.map(Store.data.printers, function(p) return p.id end) end,
 			optionLabel = function(id) local p = Store.printer(id) return p and p.name or id end,
 			get = function() return d.printerId end, set = function(v) d.printerId = v Queue.applyProfile(d, true) end },
@@ -68,7 +70,13 @@ function JobEditScreen:buildForm()
 			optionLabel = function(v) return Enums.PRIORITY[v] end,
 			get = function() return d.priority end, set = function(v) d.priority = v end },
 		{ label = "STATUS", kind = "enum",
-			options = { "IDEA", "READY", "QUEUED", "FAILED", "COMPLETE" },
+			-- COMPLETE / FAILED come from MARK COMPLETE / MARK FAILED so that
+			-- history, filament and stats are recorded.
+			options = function()
+				local o = { "IDEA", "READY", "QUEUED" }
+				if not U.indexOf(o, self.original.status) then o[#o + 1] = self.original.status end
+				return o
+			end,
 			get = function() return d.status end, set = function(v) d.status = v end,
 			hidden = function() return d.status == "PRINTING" or d.status == "PAUSED" end },
 		{ label = "PROJECT", kind = "custom", value = function() return d.project ~= "" and d.project or "(NONE)" end,
@@ -79,9 +87,9 @@ function JobEditScreen:buildForm()
 		{ label = "LAYERS", kind = "number", min = 1, max = 3000, step = 5, get = function() return d.layers end,
 			set = function(v) d.layers = v end },
 		{ label = "NOZZLE", kind = "number", min = 0, max = 300, step = 1, unit = "C", get = function() return d.nozzleTemp end,
-			set = function(v) d.nozzleTemp = v d.profileKey = "" end, hint = "Crank to override the profile" },
+			set = function(v) d.nozzleTemp = v d.profileKey = "" d.manualTemps = true end, hint = "Crank to override the profile" },
 		{ label = "BED", kind = "number", min = 0, max = 120, step = 1, unit = "C", get = function() return d.bedTemp end,
-			set = function(v) d.bedTemp = v d.profileKey = "" end },
+			set = function(v) d.bedTemp = v d.profileKey = "" d.manualTemps = true end },
 		{ label = "USE PROFILE", kind = "action", value = function()
 				local s = d.spoolId and Store.spool(d.spoolId)
 				local rec = CalService.recommend(d.printerId, d.material, s and s.manufacturer or nil)
@@ -122,11 +130,9 @@ function JobEditScreen:save()
 		j.nozzleTemp, j.bedTemp, j.profileKey = d.nozzleTemp, d.bedTemp, d.profileKey
 		Toast.show("ADDED " .. j.name, "check")
 	else
-		-- The draft already carries profile temps (or manual overrides).
-		local id = self.job.id
-		for k, v in pairs(d) do self.job[k] = v end
-		self.job.id = id
-		self.job.spoolId = d.spoolId    -- may be nil, which pairs() skips
+		-- Only what the user changed is written back: the job may have been
+		-- started, finished or re-profiled while the editor was open.
+		U.mergeEdits(self.job, self.original, d)
 		Job.normalize(self.job)
 		Toast.show("SAVED", "check")
 	end

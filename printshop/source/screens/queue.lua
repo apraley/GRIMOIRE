@@ -47,6 +47,12 @@ end
 function QueueScreen:actions(j)
 	local items = {}
 	local live = Printing.isLive(j)
+	local pf = Store.data.pendingFailure
+	local pending = pf ~= nil and pf.jobId == j.id
+	if pending then
+		items[#items + 1] = { label = "LOG PRINTER FAILURE", hint = "The printer reported this attempt failed.",
+			action = function() Screens.push(FailureScreen.new()) end }
+	end
 	local canStart, why = Printing.canStart(j)
 	if Job.isStartable(j) then
 		items[#items + 1] = { label = "PRINT NOW", disabled = not canStart, hint = canStart and "Send to " .. Store.activePrinter().name or why,
@@ -86,7 +92,7 @@ function QueueScreen:actions(j)
 		Toast.show("COPIED " .. c.name, "check")
 		self:refresh()
 	end }
-	if not live and j.status ~= "COMPLETE" and not j.archived then
+	if not live and not pending and j.status ~= "COMPLETE" and not j.archived then
 		items[#items + 1] = { label = "MARK COMPLETE", hint = "Printed off the record: logs filament + history.",
 			action = function()
 				Confirm("LOG " .. U.truncate(j.name, 16) .. " DONE?", function()
@@ -151,6 +157,11 @@ function QueueScreen:updateMove(dtMs)
 end
 
 function QueueScreen:update(dtMs)
+	-- Data changed underneath (a print finished, a menu action ran): refresh.
+	if self.rev ~= Memo.rev and not self.moving then
+		self.rev = Memo.rev
+		self:refresh()
+	end
 	if self.moving then
 		self:updateMove(dtMs)
 		return
@@ -214,7 +225,7 @@ function QueueScreen:drawRow(j, x, y, w, selected, lifted)
 	local tag = Job.STATUS_TAG[j.status] or "?"
 	local solid = j.status == "PRINTING" or j.status == "FAILED"
 	Draw.tag(tag, x + 12, y, solid, lifted and Draw.bgColor() or fg)
-	Text.draw(U.truncate(j.name, 18), x + 44, y + 1, { color = ink })
+	Text.draw(U.truncate(j.name, 16), x + 44, y + 1, { color = ink })
 	local right = U.fmtDuration(j.estMinutes * 60)
 	Text.draw(right, x + w - 4, y + 1, { color = ink, align = "right" })
 	-- Priority pips and warnings.

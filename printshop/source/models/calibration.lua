@@ -45,13 +45,16 @@ function Calibration.normalize(p)
 	p.key = Calibration.key(p.printerId, p.material, p.manufacturer)
 	p.nozzleTemp = U.int(p.nozzleTemp, 0)
 	p.bedTemp = U.int(p.bedTemp, 0)
-	p.flowRatio = U.num(p.flowRatio, 0)
-	p.retractLength = U.num(p.retractLength, 0)
-	p.retractSpeed = U.int(p.retractSpeed, 0)
-	p.xyScale = U.num(p.xyScale, 0)
-	p.zScale = U.num(p.zScale, 0)
-	p.tolerance = U.num(p.tolerance, 0)
-	p.zOffset = U.num(p.zOffset, 0)
+	-- Temperatures use 0 for "not calibrated" (0C is never a real answer).
+	-- Every other field may legitimately be 0 (a 0.00 Z offset, 0.0mm
+	-- retraction), so "not calibrated" is nil, which JSON simply omits.
+	p.flowRatio = U.num(p.flowRatio, nil)
+	p.retractLength = U.num(p.retractLength, nil)
+	p.retractSpeed = U.int(p.retractSpeed, nil)
+	p.xyScale = U.num(p.xyScale, nil)
+	p.zScale = U.num(p.zScale, nil)
+	p.tolerance = U.num(p.tolerance, nil)
+	p.zOffset = U.num(p.zOffset, nil)
 	if p.bedLeveled ~= true then p.bedLeveled = false end
 	p.updatedAt = U.int(p.updatedAt, 0)
 	p.runs = math.max(0, U.int(p.runs, 0))
@@ -67,7 +70,7 @@ function Calibration.fmtField(p, fieldDef)
 	if name == "bedLeveled" then
 		return v and "OK" or "--"
 	end
-	if v == nil or v == 0 then return "--" end
+	if v == nil or ((name == "nozzleTemp" or name == "bedTemp") and v == 0) then return "--" end
 	local s = string.format(fmt, v)
 	if unit == "C" then return s .. FontData.icon.deg .. "C" end
 	return s .. unit
@@ -81,8 +84,9 @@ end
 function Calibration.completeness(p)
 	local n = 0
 	for _, f in ipairs(Calibration.FIELDS) do
-		local v = p[f[1]]
-		if v == true or (type(v) == "number" and v ~= 0) then n = n + 1 end
+		local name, v = f[1], p[f[1]]
+		local isTemp = name == "nozzleTemp" or name == "bedTemp"
+		if v == true or (type(v) == "number" and (v ~= 0 or not isTemp)) then n = n + 1 end
 	end
 	return n, #Calibration.FIELDS
 end

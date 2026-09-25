@@ -178,13 +178,19 @@ function Stats.suggestions(now)
 		local remedy = Enums.CAUSE_REMEDY[h.cause]
 		if remedy then
 			local key = Calibration.key(h.printerId, h.material, h.manufacturer)
-			if remedy.calib then
-				local id = "calib:" .. remedy.calib .. ":" .. key
-				local run = CalService.lastRun(remedy.calib, key)
-				if not seen[id] and (run == nil or run.at < h.endedAt) then
-					seen[id] = true
-					out[#out + 1] = { kind = "calib", target = remedy.calib, key = key, cause = h.cause,
-						material = h.material, manufacturer = h.manufacturer, at = h.endedAt, weight = 3 }
+			local anyKey = Calibration.key(h.printerId, h.material, "ANY")
+			for i, target in ipairs({ remedy.calib or false, remedy.alt or false }) do
+				if target then
+					local id = "calib:" .. target .. ":" .. key
+					-- A run for this maker, or material-wide, both count as done.
+					local run = CalService.lastRun(target, key)
+					local runAny = CalService.lastRun(target, anyKey)
+					local last = math.max(run and run.at or 0, runAny and runAny.at or 0)
+					if not seen[id] and last < h.endedAt then
+						seen[id] = true
+						out[#out + 1] = { kind = "calib", target = target, key = key, cause = h.cause,
+							material = h.material, manufacturer = h.manufacturer, at = h.endedAt, weight = i == 1 and 3 or 1 }
+					end
 				end
 			end
 			if remedy.maint then

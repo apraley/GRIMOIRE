@@ -58,7 +58,3 @@ function Printer.successRate(p)
 	return p.stats.successes / n
 end
 
--- Short tag used in calibration keys: "p1" stays "p1"; keys are stable ids.
-function Printer.key(p)
-	return p.id
-end

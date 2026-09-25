@@ -21,7 +21,8 @@ CalibDefs = {}
 
 local function prof(ctx, field, fallback)
 	local v = ctx.profile and ctx.profile[field]
-	if v == nil or v == 0 then return fallback end
+	if v == nil then return fallback end
+	if v == 0 and (field == "nozzleTemp" or field == "bedTemp") then return fallback end
 	return v
 end
 

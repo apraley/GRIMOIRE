@@ -12,10 +12,6 @@ function U.clamp(v, lo, hi)
 	return v
 end
 
-function U.lerp(a, b, t)
-	return a + (b - a) * t
-end
-
 function U.round(v, places)
 	local m = 10 ^ (places or 0)
 	return math.floor(v * m + 0.5) / m
@@ -149,14 +145,40 @@ function U.asList(t)
 		out[#out + 1] = t[k]
 	end
 	if #out == 0 then
-		-- Keyed object: keep values in key order so nothing is lost.
-		for _, k in ipairs(U.keys(t)) do
-			if type(k) == "string" and type(t[k]) == "table" then
-				out[#out + 1] = t[k]
-			end
+		-- Keyed object (e.g. {"1": ..., "10": ...}): keep values in key
+		-- order, numerically when the keys are numbers.
+		local sk = {}
+		for k, v in pairs(t) do
+			if type(k) == "string" and type(v) == "table" then sk[#sk + 1] = k end
 		end
+		table.sort(sk, function(a, b)
+			local na, nb = tonumber(a), tonumber(b)
+			if na and nb then return na < nb end
+			if na or nb then return na ~= nil end
+			return a < b
+		end)
+		for _, k in ipairs(sk) do out[#out + 1] = t[k] end
 	end
 	return out
+end
+
+-- Three-way merge for editors: copies into `target` only the keys whose
+-- value in `draft` differs from `original` (the snapshot taken when the
+-- editor opened). Fields that changed underneath the editor meanwhile (a
+-- print finishing, filament being consumed) are preserved. Returns the
+-- list of changed keys.
+function U.mergeEdits(target, original, draft)
+	local changed = {}
+	local keys = {}
+	for k in pairs(original) do keys[k] = true end
+	for k in pairs(draft) do keys[k] = true end
+	for k in pairs(keys) do
+		if draft[k] ~= original[k] and type(draft[k]) ~= "table" then
+			target[k] = draft[k]
+			changed[#changed + 1] = k
+		end
+	end
+	return changed
 end
 
 function U.moveItem(list, from, to)
@@ -320,6 +342,3 @@ function U.fmtRelDays(epoch, now)
 	return "in " .. (-d) .. "d"
 end
 
-function U.daysBetween(a, b)
-	return (b - a) // U.DAY
-end

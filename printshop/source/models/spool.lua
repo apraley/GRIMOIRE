@@ -81,10 +81,6 @@ function Spool.metersRemaining(s)
 	return s.remainingGrams / Enums.gramsPerMeter(s.material)
 end
 
-function Spool.label(s)
-	return s.manufacturer .. " " .. s.material .. " " .. s.color
-end
-
 -- Short label that fits in list rows.
 function Spool.shortLabel(s)
 	return U.truncate(s.manufacturer, 9) .. " " .. s.material .. " " .. U.truncate(s.color, 7)

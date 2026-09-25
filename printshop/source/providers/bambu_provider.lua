@@ -132,11 +132,7 @@ local function request(command, extra)
 end
 
 function BambuProvider:bambuCommand(command)
-	if not self.status.online then return false, "BRIDGE OFFLINE" end
-	return self:request("POST", "/api/v1/bambu/command", json.encode(request(command)), function(_, e)
-		if e then self:emit({ type = "log", text = U.upper(command) .. " FAILED: " .. e })
-		else self:emit({ type = "log", text = U.upper(command) .. " SENT TO PRINTER" }) end
-	end)
+	return self:post("/api/v1/bambu/command", json.encode(request(command)), U.upper(command))
 end
 
 function BambuProvider:pause() return self:bambuCommand("pause") end

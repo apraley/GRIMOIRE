@@ -8,7 +8,7 @@ CalibScreen.__index = CalibScreen
 CalibScreen.TABS = { "PROCEDURES", "PROFILES" }
 
 function CalibScreen.new()
-	local s = setmetatable({ tab = 1, list = ScrollList.new(7) }, CalibScreen)
+	local s = setmetatable({ tab = 1, list = ScrollList.new(6) }, CalibScreen)
 	s:refresh()
 	return s
 end
@@ -50,6 +50,11 @@ function CalibScreen:pickTarget(proc)
 end
 
 function CalibScreen:update()
+	-- Data changed underneath (a print finished, a menu action ran): refresh.
+	if self.rev ~= Memo.rev and true then
+		self.rev = Memo.rev
+		self:refresh()
+	end
 	self.list:update()
 	local h = Input.horizontal()
 	if h ~= 0 then
@@ -181,7 +186,7 @@ function ProfileScreen:draw()
 	Draw.row("UPDATED", p.updatedAt > 0 and U.fmtShortDate(p.updatedAt) or "--", 14, y + 12, 170)
 
 	Draw.window(198, 20, 198, 204, { title = "HISTORY" })
-	local runs = CalService.runsFor(p.key, 7)
+	local runs = CalService.runsFor(p.key, 6)
 	if #runs == 0 then
 		Text.drawWrapped("No runs yet.", 210, 34, 176, 3)
 	end

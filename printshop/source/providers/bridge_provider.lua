@@ -117,6 +117,18 @@ end
 -- polling
 
 function LocalBridgeProvider:update(dtMs)
+	-- Wake the Wi-Fi radio early; it otherwise connects on first use.
+	if not self.radioRequested and self:networkAvailable() and playdate.network.setEnabled then
+		self.radioRequested = true
+		playdate.network.setEnabled(true)
+	end
+	if self.queued and not self.inflight then
+		local send = self.queued
+		self.queued = nil
+		local ok, err = send()
+		if not ok then self:emit({ type = "log", text = "COMMAND FAILED: " .. tostring(err) }) end
+		return
+	end
 	if self.inflight then
 		if Clock.ms() - self.inflight.started > LocalBridgeProvider.TIMEOUT_MS then
 			local req = self.inflight
@@ -166,13 +178,17 @@ function LocalBridgeProvider:ingest(doc)
 	self:deriveEvents(norm.state)
 end
 
--- Translate state transitions into the provider event vocabulary.
+-- Translate state transitions into the provider event vocabulary. The last
+-- state and job are persisted, so a print that finished while PRINT SHOP was
+-- closed is still reported on the first poll after launch.
 function LocalBridgeProvider:deriveEvents(state)
 	local prev = self.lastState
+	local prevJob = self.lastJobName
 	self.lastState = state
+	self.lastJobName = self.job and self.job.name or prevJob
 	if prev == nil or prev == state then return end
 	self:emit({ type = "state", from = prev, to = state })
-	local j = self.job or {}
+	local j = self.job or { name = prevJob }
 	local p = self.progress
 	local wasActive = prev == "PRINTING" or prev == "PAUSED" or prev == "HEATING"
 	if wasActive and state == "COMPLETE" then
@@ -182,6 +198,9 @@ function LocalBridgeProvider:deriveEvents(state)
 		self:emit({ type = "failed", jobId = j.jobId, name = j.name, reason = self.status.message,
 			progress = p.pct / 100, layer = p.layer, durationSec = p.elapsedSec,
 			grams = (j.grams or 0) * p.pct / 100, nozzle = self.temps.nozzleTarget, bed = self.temps.bedTarget })
+	elseif wasActive and state == "IDLE" then
+		-- Cleared or cancelled on the printer: outcome unknown.
+		self:emit({ type = "lost", jobId = j.jobId, name = prevJob })
 	end
 end
 
@@ -221,25 +240,32 @@ function LocalBridgeProvider:getProgress() return self.progress end
 function LocalBridgeProvider:getCurrentJob() return self.job end
 function LocalBridgeProvider:getAMSOrSpoolState() return self.spools end
 
-function LocalBridgeProvider:command(name, payload)
+-- Sends a POST now, or right after the in-flight poll finishes. Commands
+-- jump ahead of polling so pause/cancel never fail with "busy".
+function LocalBridgeProvider:post(path, body, label)
 	if not self.status.online then return false, "BRIDGE OFFLINE" end
-	local ok, err = self:request("POST", "/api/v1/" .. name, payload and json.encode(payload) or "{}", function(_, e)
-		if e then self:emit({ type = "log", text = U.upper(name) .. " FAILED: " .. e })
-		else self:emit({ type = "log", text = U.upper(name) .. " SENT" }) end
-	end)
-	return ok, err
+	local send = function()
+		return self:request("POST", path, body, function(_, e)
+			if e then self:emit({ type = "log", text = label .. " FAILED: " .. e })
+			else self:emit({ type = "log", text = label .. " SENT" }) end
+			self.pollMs = LocalBridgeProvider.POLL_MS   -- refresh status right away
+		end)
+	end
+	if self.inflight then
+		self.queued = send
+		self:emit({ type = "log", text = label .. " QUEUED" })
+		return true
+	end
+	return send()
+end
+
+function LocalBridgeProvider:command(name, payload)
+	return self:post("/api/v1/" .. name, payload and json.encode(payload) or "{}", U.upper(name))
 end
 
 function LocalBridgeProvider:pause() return self:command("pause") end
 function LocalBridgeProvider:resume() return self:command("resume") end
 function LocalBridgeProvider:cancel() return self:command("cancel") end
-
--- Starting jobs remotely needs the sliced file on the printer; bridges may
--- support it (schema: POST /api/v1/start {jobId,name,file}), most won't.
-function LocalBridgeProvider:startJob(spec)
-	if not self.status.online then return false, "BRIDGE OFFLINE" end
-	return self:command("start", { jobId = spec.jobId, name = spec.name, file = spec.model })
-end
 
 function LocalBridgeProvider:acknowledge() end
 
@@ -251,12 +277,17 @@ function LocalBridgeProvider:shutdown()
 end
 
 function LocalBridgeProvider:serialize()
-	return { lastState = self.lastState, lastEventSeq = self.lastEventSeq }
+	return { lastState = self.lastState, lastJobName = self.lastJobName, lastEventSeq = self.lastEventSeq }
 end
 
+-- Restoring lastState lets a transition that happened while the app was
+-- closed (PRINTING -> COMPLETE) be derived on the first poll. A completion
+-- can't be counted twice: once reported, the job is COMPLETE and no longer
+-- matches by name.
 function LocalBridgeProvider:restore(state)
-	-- lastState is not restored on purpose: a transition that happened while
-	-- PRINT SHOP was closed is reported by the bridge's `events`, and
-	-- re-deriving from a stale state could double-count a completion.
-	self.lastEventSeq = U.int(state and state.lastEventSeq, 0)
+	state = state or {}
+	self.lastState = U.oneOf(state.lastState, Enums.PRINTER_STATES, nil)
+	if self.lastState == "OFFLINE" then self.lastState = nil end
+	self.lastJobName = state.lastJobName and tostring(state.lastJobName) or nil
+	self.lastEventSeq = U.int(state.lastEventSeq, 0)
 end

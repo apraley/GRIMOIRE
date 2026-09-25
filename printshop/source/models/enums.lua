@@ -57,7 +57,7 @@ Enums.CAUSE_REMEDY = {
 	spaghetti  = { calib = "firstlayer", maint = "bed_clean" },
 	adhesion   = { calib = "firstlayer", maint = "bed_clean" },
 	layershift = { calib = nil,          maint = "belts" },
-	stringing  = { calib = "retraction", maint = nil, alt = "temptower" },
+	stringing  = { calib = "retraction", maint = nil, alt = "temptower" },  -- alt: second suggestion
 	underext   = { calib = "flow",       maint = "extruder_clean" },
 	overext    = { calib = "flow",       maint = nil },
 	clog       = { calib = "temptower",  maint = "nozzle" },

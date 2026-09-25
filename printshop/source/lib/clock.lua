@@ -8,6 +8,7 @@ Clock = {
 	offset = 0,
 	frameMs = 33,
 	lastMs = nil,
+	gapMs = 0,      -- real time lost to clamping this frame (sleep, lock, menu)
 }
 
 function Clock.now()
@@ -29,6 +30,15 @@ function Clock.tick()
 		if dt < 0 then dt = 33 end
 		if dt > 250 then dt = 250 end
 	end
+	-- The game clock may stand still while the device sleeps or the system
+	-- menu is open; the wall clock doesn't. Any wall time beyond this frame
+	-- is reported as a gap (whole seconds, so ignore sub-2s jitter).
+	Clock.gapMs = 0
+	local wall = Clock.now()
+	if Clock.lastWall ~= nil and wall - Clock.lastWall >= 2 then
+		Clock.gapMs = math.max(0, (wall - Clock.lastWall) * 1000 - dt)
+	end
+	Clock.lastWall = wall
 	Clock.lastMs = ms
 	Clock.frameMs = dt
 	return dt

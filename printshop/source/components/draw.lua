@@ -60,16 +60,6 @@ function Draw.fillPattern(name, x, y, w, h)
 	gfx.setColor(gfx.kColorBlack)
 end
 
-function Draw.fill(color, x, y, w, h)
-	gfx.setColor(color)
-	gfx.fillRect(x, y, w, h)
-end
-
-function Draw.frame(color, x, y, w, h)
-	gfx.setColor(color)
-	gfx.drawRect(x, y, w, h)
-end
-
 -- Double-line bordered window. opts.title draws a tab; opts.fill = false
 -- skips the background; opts.invert swaps colours for emphasis.
 function Draw.window(x, y, w, h, opts)

@@ -113,6 +113,11 @@ function MaintScreen:logEvent()
 end
 
 function MaintScreen:update()
+	-- Data changed underneath (a print finished, a menu action ran): refresh.
+	if self.rev ~= Memo.rev and true then
+		self.rev = Memo.rev
+		self:refresh()
+	end
 	self.list:update()
 	if Input.a() then
 		local i = self.list.sel

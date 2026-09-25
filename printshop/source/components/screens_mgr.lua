@@ -45,12 +45,6 @@ function Screens.popToRoot()
 	while #Screens.stack > 1 do Screens.pop() end
 end
 
-function Screens.replace(s)
-	local old = table.remove(Screens.stack)
-	if old and old.leave then old:leave() end
-	return Screens.push(s)
-end
-
 -- Removes a specific screen wherever it is (used by overlays closing
 -- themselves after their callback pushed something new).
 function Screens.remove(s)

@@ -8,7 +8,7 @@ function SpoolEditScreen.new(spool)
 	local d = isNew and Spool.new({ manufacturer = "BAMBU", material = "PLA", color = "BLACK", nominalGrams = 1000,
 		remainingGrams = 1000, cost = 19.99, dryness = "SEALED", location = "SHELF A", purchasedAt = Clock.now() })
 		or U.deepcopy(spool)
-	local self = setmetatable({ spool = spool, draft = d, isNew = isNew }, SpoolEditScreen)
+	local self = setmetatable({ spool = spool, draft = d, isNew = isNew, original = U.deepcopy(d) }, SpoolEditScreen)
 	self:buildForm()
 	return self
 end
@@ -79,10 +79,16 @@ function SpoolEditScreen:save()
 		local s = Filament.add(fields)
 		Toast.show("ADDED " .. Spool.shortLabel(s), "check")
 	else
-		local id = self.spool.id
-		for k, v in pairs(d) do self.spool[k] = v end
-		self.spool.id = id
+		-- Merge only the user's edits: prints may have consumed filament
+		-- while the editor was open. A changed REMAINING is a weigh-in and
+		-- goes through the ledger.
+		local newRemaining = d.remainingGrams
+		d.remainingGrams = self.original.remainingGrams
+		U.mergeEdits(self.spool, self.original, d)
 		Spool.normalize(self.spool)
+		if newRemaining ~= self.original.remainingGrams then
+			Filament.setRemaining(self.spool, newRemaining, "Edited card")
+		end
 		Store.markDirty()
 		Toast.show("SAVED", "check")
 	end

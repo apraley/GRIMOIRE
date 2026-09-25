@@ -24,7 +24,7 @@ function FailureScreen.new(opts)
 		cause = (pf and opts.job == nil and pf.cause) or "unknown",
 		notes = "",
 		asCancel = false,
-		list = ScrollList.new(Enums.FAILURE_CAUSES and #Enums.FAILURE_CAUSES or 10, { crank = false }),
+		list = ScrollList.new(#Enums.FAILURE_CAUSES, { crank = false }),
 		gramTicker = CrankTicker.new(10),
 	}, FailureScreen)
 	local progress = self.pending and self.pending.progress or 0.5
@@ -156,9 +156,11 @@ function FailureScreen:draw()
 			Text.draw(FontData.icon.star, 380, yy)
 		end
 	end
-	-- Past count for this cause on this material.
+	-- Past count for this cause on this material (cached per cause).
 	local m = spool and spool.material or self.job.material
-	local n = #Stats.recent(200, function(h) return h.outcome == "failed" and h.cause == self.cause and h.material == m end)
-	gfx.setColor(gfx.kColorBlack)
-	Text.draw(string.format("%s: %d BEFORE ON %s", U.truncate(Enums.CAUSE_LABEL[self.cause], 14), n, m), 210, 206)
+	if self.countCause ~= self.cause then
+		self.countCause = self.cause
+		self.causeCount = #Stats.recent(200, function(h) return h.outcome == "failed" and h.cause == self.cause and h.material == m end)
+	end
+	Text.draw(string.format("%d BEFORE ON %s", self.causeCount, m), 210, 206)
 end

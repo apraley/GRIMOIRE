@@ -47,8 +47,20 @@ function WatchScreen:controls(snap)
 		items[#items + 1] = { label = "CANCEL PRINT", disabled = not caps.control, action = function()
 			Confirm("CANCEL THIS PRINT?", function()
 				local ok, err = Printing.cancel()
-				if not ok then Toast.show(err, "warn") end
+				if not ok then
+					Toast.show(err, "warn")
+				elseif Store.data.pendingFailure and Store.data.pendingFailure.cancelled then
+					-- A cancel you chose isn't a failure: log it as such.
+					Printing.resolvePending({ asCancel = true })
+					Toast.show("PRINT CANCELLED", "cross")
+				end
 			end)
+		end }
+	end
+	if st == "ERROR" and not snap.pending then
+		items[#items + 1] = { label = "CLEAR ERROR", action = function()
+			Printing.acknowledge()
+			Toast.show("ERROR CLEARED", "check")
 		end }
 	end
 	if st == "COMPLETE" then
