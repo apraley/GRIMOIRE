@@ -201,6 +201,59 @@ flow("end day -> night -> sleep -> morning -> mall (x3)", function()
   end
 end)
 
+flow("walk through doors, escalators, staff doors", function()
+  -- set a daytime clock so stores are open
+  local day = Clock.day(W.t)
+  if Clock.minute(W.t) > 18 * 60 or Clock.minute(W.t) < 11 * 60 then
+    WorldSim.advance(day * 1440 + 1440 + 12 * 60, 5)
+  end
+  local a = Areas.build("c1")
+  local tried = 0
+  for _, d in ipairs(a.doors) do
+    if d.store and d.fy and tried < 6 then
+      local s = W.stores[d.store]
+      if s.open and Stores.isOpenAt(s, W.t) and not d.staff then
+        tried = tried + 1
+        p.area = "c1"; p.x = d.fx * 16 + 8; p.y = d.fy * 16 + 14; Explore.arrive("c1", true)
+        local dir = (d.fy > d.y) and B.up or (d.fy < d.y) and B.down or (d.fx > d.x) and B.left or B.right
+        p.y = d.fy * 16 + (dir == B.up and 14 or dir == B.down and 2 or 12)
+        for _ = 1, 30 do frame(dir); if p.area ~= "c1" then break end end
+        assert(p.area == "s" .. s.id, "did not enter " .. s.name .. " (area " .. p.area .. ")")
+        untilExplore(200)
+        -- walk back out the front door
+        for _ = 1, 80 do frame(B.down); if p.area ~= "s" .. s.id then break end end
+        assert(p.area == "c1", "did not exit " .. s.name .. " (area " .. p.area .. ")")
+        untilExplore(200)
+      end
+    end
+  end
+  assert(tried > 0, "no store doors tried")
+  -- escalator up
+  for _, o in ipairs(a.objs) do
+    if o.kind == "escalator" then
+      p.area = "c1"; p.x = (o.x - 1) * 16 + 8; p.y = (o.y + 2) * 16 + 8; Explore.arrive("c1", true)
+      for _ = 1, 20 do frame(B.right); if p.area ~= "c1" then break end end
+      assert(p.area == "c2", "escalator did not go up (area " .. p.area .. ")")
+      break
+    end
+  end
+  untilExplore(100)
+  -- staff-only door without a job gets you shooed (or not, if nobody sees)
+  local keep = p.job
+  p.job = nil
+  for _, d in ipairs(Areas.build("c2").doors) do
+    if d.staff then
+      p.area = "c2"; p.x = d.fx * 16 + 8; p.y = d.fy * 16 + 14; Explore.arrive("c2", true)
+      local dir = (d.fy > d.y) and B.up or B.down
+      for _ = 1, 30 do frame(dir); if p.area ~= "c2" then break end end
+      assert(p.area == "v2" or Scene.top() ~= Explore.scene, "staff door did nothing")
+      break
+    end
+  end
+  untilExplore(300)
+  p.job = keep
+end)
+
 flow("walk around for an hour", function()
   p.area = "c1"; p.x, p.y = W.mall.court0 * 16, 9 * 16; Explore.arrive("c1", true)
   for i = 1, 30 * 60 do

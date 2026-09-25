@@ -86,7 +86,7 @@ function MusicSim.formBands(day)
             for _, id in ipairs(b.members) do W.npcs[id].band = b.id end
             table.remove(n.wants, i)
             Timeline.add("music", n.first .. ", " .. mates[1].first .. " and " .. mates[2].first ..
-              " started a " .. n.taste .. " band called " .. name .. ".", 2)
+              " started " .. U.a(n.taste) .. " band called " .. name .. ".", 2)
             Rumors.add("band", n.id, n.first .. " started a band called " .. name, 4, b.members)
           end
           break

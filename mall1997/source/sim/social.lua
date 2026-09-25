@@ -170,7 +170,10 @@ end
 -- runs every 10 game minutes
 function Social.update()
   local r = U.rng(W.seed, "social", math.floor(W.t))
-  for area, list in pairs(NPCAI.byArea) do
+  -- sorted: string-key iteration order is randomized per Lua state, and the
+  -- shared RNG must be consumed in a stable order for deterministic runs
+  for _, area in ipairs(U.keys(NPCAI.byArea)) do
+    local list = NPCAI.byArea[area]
     local n = #list
     if n >= 2 and area ~= "home" then
       local pairs_ = math.min(4, n // 2 + 1)
@@ -319,6 +322,12 @@ function Social.pagePlayer(day, r)
         n.dateToday = { day = day, s = hour * 60, e = hour * 60 + 60, a = area, with = -1 }
       elseif p.a >= 65 and NPCGen.romanceOK(n, { id = -1, age = W.p.age }) and r:chance(0.04) then
         Pager.send("???", "143")
+      elseif p.f >= 60 and r:chance(0.02) then
+        local what = r:pick({ "mixtape (" .. n.first .. "'s picks)", "friendship bracelet", "photo-booth strip of you two",
+          "copy of " .. (n.taste or "their favorite") .. " CD", "folded note (do not read in public)" })
+        Econ.give({ k = "gift", n = what, v = 0, from = "gift", giver = n.id })
+        Pager.send(n.first:upper(), "LEFT SOMETHING IN UR BACKPACK :)")
+        Memory.add(n, "gave", "gave " .. W.p.name .. " a " .. what, -1)
       elseif p.f >= 35 and r:chance(0.01) and #W.p.inv > 3 then
         local it = W.p.inv[r:i(1, #W.p.inv)]
         if it.k ~= "gear" then
