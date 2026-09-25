@@ -159,39 +159,42 @@ end
 ------------------------------------------------------------------------
 -- drawing
 ------------------------------------------------------------------------
-local function drawWindow(x, t)
-  -- arched window showing the sea and a far lighthouse
-  gfx.setColor(gfx.kColorWhite)
-  gfx.fillRect(x - 30, 40, 60, 70)
-  gfx.fillCircleAtPoint(x, 40, 30)
+-- small arched window between cabinets: the sea and a far lighthouse
+local function drawWindow(x, t, phase)
+  local top, h, w = 30, 30, 34
   gfx.setColor(gfx.kColorBlack)
-  gfx.setPattern(Art.pat.gray12)
-  gfx.fillRect(x - 28, 42, 56, 40)
-  gfx.setColor(gfx.kColorBlack)
-  -- sea line
-  gfx.fillRect(x - 28, 84, 56, 26)
+  gfx.fillRect(x - w / 2 - 4, top, w + 8, h + 6)
+  gfx.fillCircleAtPoint(x, top, w / 2 + 4)
+  -- night sky
   gfx.setColor(gfx.kColorWhite)
-  for i = 0, 3 do
-    local wx = x - 26 + ((t * 8 + i * 17) % 52)
-    gfx.drawLine(wx, 90 + i * 5, wx + 6, 90 + i * 5)
+  gfx.fillRect(x - w / 2, top, w, h)
+  gfx.fillCircleAtPoint(x, top, w / 2)
+  gfx.setPattern(Art.pat.gray75)
+  gfx.fillRect(x - w / 2, top - w / 2, w, h - 18 + w / 2)
+  gfx.setColor(gfx.kColorWhite)
+  gfx.drawPixel(x - 8, top - 6) gfx.drawPixel(x + 6, top + 4) gfx.drawPixel(x - 2, top + 12)
+  -- sea
+  gfx.setColor(gfx.kColorBlack)
+  gfx.fillRect(x - w / 2, top + h - 18, w, 18)
+  gfx.setColor(gfx.kColorWhite)
+  for i = 0, 2 do
+    local wx = x - w / 2 + ((t * 6 + i * 13 + phase) % w)
+    gfx.drawLine(wx, top + h - 13 + i * 5, math.min(x + w / 2 - 1, wx + 5), top + h - 13 + i * 5)
   end
-  -- lighthouse
-  gfx.setColor(gfx.kColorBlack)
-  gfx.fillRect(x + 12, 66, 4, 18)
-  gfx.fillRect(x + 11, 63, 6, 3)
-  local beam = sin(t * 1.5)
-  if beam > 0.6 then
-    gfx.setColor(gfx.kColorBlack)
-    gfx.drawLine(x + 14, 64, x - 28, 58)
+  -- lighthouse on the horizon with a sweeping beam
+  gfx.fillRect(x + 8, top + h - 30, 3, 12)
+  local beam = sin(t * 1.4 + phase)
+  if beam > 0.5 then
+    gfx.drawLine(x + 9, top + h - 29, x - w / 2, top + h - 34)
   end
   -- mullions
   gfx.setColor(gfx.kColorBlack)
-  gfx.setLineWidth(3)
-  gfx.drawLine(x, 12, x, 110)
-  gfx.drawLine(x - 30, 70, x + 30, 70)
-  gfx.drawArc(x, 40, 30, 270, 90)
-  gfx.drawRect(x - 30, 40, 60, 70)
+  gfx.setLineWidth(2)
+  gfx.drawLine(x, top - w / 2, x, top + h)
+  gfx.drawLine(x - w / 2, top + 16, x + w / 2, top + 16)
   gfx.setLineWidth(1)
+  -- sill
+  gfx.fillRect(x - w / 2 - 6, top + h + 4, w + 12, 4)
 end
 
 local function drawLamp(x, t)
@@ -275,7 +278,7 @@ local function drawDaily(self, s, sx)
   Art.gear(sx, FLOOR_Y - 92, 24, 14, self.t * 30, true)
   iconFor(self.daily.def):drawScaled(sx - 12, FLOOR_Y - 48, 0.5)
   local played = Save.data.daily.played[self.daily.key]
-  UI.textW(played and "DONE" or "TODAY", sx, FLOOR_Y - 22, "center")
+  UI.textW(played and "DONE" or "DAILY", sx, FLOOR_Y - 22, "center")
 end
 
 local function drawCurator(self, s, sx)
@@ -355,27 +358,65 @@ function HubScene:draw()
   gfx.clear(gfx.kColorWhite)
 
   -- wall
-  gfx.setPattern(Art.pat[Themes.wallPattern()])
-  gfx.fillRect(0, 0, 400, FLOOR_Y)
-  -- wainscot
+  local wp = Themes.wallPattern()
+  if wp == "wood" then
+    gfx.setPattern(Art.pat.gray6)
+    gfx.fillRect(0, 0, 400, FLOOR_Y)
+    gfx.setColor(gfx.kColorBlack)
+    -- plank seams scroll with the gallery
+    local po = -(cam % 22)
+    for x = po, 400, 22 do
+      gfx.drawLine(x, 10, x, FLOOR_Y - 46)
+    end
+    gfx.setPattern(Art.pat.grain)
+    for x = po, 400, 44 do gfx.fillRect(x + 4, 30, 12, 90) end
+  else
+    gfx.setPattern(Art.pat[wp])
+    gfx.fillRect(0, 0, 400, FLOOR_Y)
+  end
+  -- crown moulding
+  gfx.setColor(gfx.kColorBlack)
+  gfx.fillRect(0, 0, 400, 8)
+  local dco = -(cam % 10)
   gfx.setColor(gfx.kColorWhite)
+  for x = dco, 400, 10 do gfx.fillRect(x, 3, 5, 3) end
+  gfx.setColor(gfx.kColorBlack)
+  gfx.drawLine(0, 10, 400, 10)
+  -- wainscot
+  gfx.setPattern(Art.pat.gray25)
   gfx.fillRect(0, FLOOR_Y - 46, 400, 46)
   gfx.setColor(gfx.kColorBlack)
-  gfx.drawLine(0, FLOOR_Y - 46, 400, FLOOR_Y - 46)
-  gfx.drawLine(0, FLOOR_Y - 43, 400, FLOOR_Y - 43)
+  gfx.fillRect(0, FLOOR_Y - 48, 400, 4)
   local off = -(cam % 60)
-  for x = off, 400, 60 do gfx.drawRect(x + 6, FLOOR_Y - 38, 48, 32) end
-
-  -- windows (parallax 0.6)
-  local wcam = cam * 0.6
-  for wx = 140, worldW, 280 do
-    local sx = wx - wcam
-    if sx > -40 and sx < 440 then drawWindow(floor(sx), t) end
+  for x = off, 400, 60 do
+    gfx.setColor(gfx.kColorWhite)
+    gfx.fillRect(x + 7, FLOOR_Y - 37, 46, 30)
+    gfx.setColor(gfx.kColorBlack)
+    gfx.drawRect(x + 6, FLOOR_Y - 38, 48, 32)
+    gfx.drawRect(x + 9, FLOOR_Y - 35, 42, 26)
   end
-  -- lamps
-  for lx = 60, worldW, 132 do
-    local sx = lx - cam + 66
+
+  -- windows between the cabinets
+  for i = 0, #Machines.list do
+    local wx = CAB_START - CAB_GAP / 2 + i * CAB_GAP
+    local sx = wx - cam
+    if sx > -40 and sx < 440 then drawWindow(floor(sx), t, i * 7) end
+  end
+  -- lamps over each cabinet
+  for i = 0, #Machines.list - 1 do
+    local sx = CAB_START + i * CAB_GAP - cam
     if sx > -20 and sx < 420 then drawLamp(floor(sx), t) end
+  end
+
+  -- signage near the entrance
+  local sgx = floor(250 - cam)
+  if sgx > -200 and sgx < 600 then
+    gfx.setColor(gfx.kColorBlack)
+    gfx.drawLine(sgx - 90, 10, sgx - 80, 24)
+    gfx.drawLine(sgx + 90, 10, sgx + 80, 24)
+    UI.panel(sgx - 112, 24, 224, 40, "ink")
+    UI.textW("MUSEUM OF", sgx, 28, "center")
+    UI.textW("HAND-TURNED THINGS", sgx, 44, "center", UI.bold)
   end
 
   -- stations

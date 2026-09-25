@@ -28,6 +28,16 @@ function ResultsScene:enter(sum)
     self.stampText = sum.result.title or (sum.result.success and "WELL TURNED" or "MACHINE STOPPED")
   end
   if sum.result.success == false then Audio.sfx.fail() else Audio.sfx.success() end
+  self.scoreImg = gfx.image.new(160, UI.boldH + 2, gfx.kColorClear)
+  self.scoreDrawn = -1
+  self.goalText = sum.goal and ("goal " .. U.commas(sum.goal)) or nil
+  self.modeLabel = sum.params.daily and "DAILY" or (sum.params.challengeId and "CHALLENGE" or (sum.params.mode or ""):upper())
+  local names = {}
+  for i, a in ipairs(sum.achievements) do names[i] = a.name end
+  self.achText = "* " .. table.concat(names, "  * ")
+  self.medalText = {}
+  local md = self.def.medals[sum.params.mode]
+  if md then for i = 1, 3 do self.medalText[i] = U.commas(md[i]) end end
 end
 
 function ResultsScene:update(dt)
@@ -79,67 +89,81 @@ function ResultsScene:update(dt)
   end
 end
 
+function ResultsScene:drawScore()
+  local v = floor(self.shown)
+  if v ~= self.scoreDrawn then
+    self.scoreDrawn = v
+    gfx.pushContext(self.scoreImg)
+    gfx.clear(gfx.kColorClear)
+    UI.text(U.commas(v), 0, 0, "left", UI.bold)
+    gfx.popContext()
+  end
+  self.scoreImg:drawScaled(24, 44, 2)
+end
+
 function ResultsScene:draw()
   local def, sum, r = self.def, self.sum, self.r
   gfx.clear(gfx.kColorWhite)
   gfx.setPattern(Art.pat.gray12)
   gfx.fillRect(0, 0, 400, 240)
-  UI.header(def.number, def.title, sum.params.daily and "DAILY" or (sum.params.challengeId and "CHALLENGE" or (sum.params.mode or ""):upper()))
+  UI.header(def.number, def.title, self.modeLabel)
 
   -- card
   UI.panel(10, 24, 290, 192, "paper")
-  UI.text(def.scoreLabel, 26, 34)
-  UI.text(U.commas(floor(self.shown)), 26, 50, "left", UI.bold)
+  UI.text(def.scoreLabel, 24, 30)
+  self:drawScore()
+  if sum.goal then UI.text(self.goalText, 24, 80) end
   if sum.newBest and self.t > 1.2 then
-    gfx.fillRoundRect(150, 34, 90, 20, 4)
-    UI.textW("NEW BEST", 195, 35, "center", UI.bold)
+    gfx.setColor(gfx.kColorBlack)
+    gfx.fillRoundRect(196, 84, 92, 18, 4)
+    UI.textW("NEW BEST", 242, 84, "center", UI.bold)
   end
-  if sum.goal then UI.text("goal " .. U.commas(sum.goal), 150, 56) end
   -- result lines
-  local y = 78
+  local y = sum.goal and 98 or 88
   local lines = r.lines or {}
-  for i = 1, math.min(#lines, 5) do
-    UI.text(lines[i], 26, y)
-    y = y + 18
+  for i = 1, math.min(#lines, 4) do
+    UI.text(lines[i], 24, y)
+    y = y + 16
+  end
+  -- achievements ribbon
+  local ach = sum.achievements
+  if #ach > 0 and self.t > 1.0 then
+    gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(16, 162, 278, 18)
+    UI.textW(self.achText, 22, 163)
   end
   -- medals
   if sum.params.mode ~= "tutorial" and not sum.params.daily and not sum.params.challengeId then
     local md = def.medals[sum.params.mode]
     if md then
       for i = 1, 3 do
-        local mx = 40 + (i - 1) * 90
+        local mx = 30 + (i - 1) * 92
         local got = sum.medal >= i
         local fresh = got and i > sum.medalBefore
         if got then
-          local a = fresh and self.t * 90 or 0
-          Art.gear(mx, 190, 10, 8, a, true)
+          Art.gear(mx, 198, 10, 8, fresh and self.t * 90 or 0, true)
         else
-          gfx.drawCircleAtPoint(mx, 190, 9)
+          gfx.setColor(gfx.kColorBlack)
+          gfx.drawCircleAtPoint(mx, 198, 9)
         end
-        UI.text(LobbyScene.MEDAL_NAMES[i] .. " " .. U.commas(md[i]), mx + 14, 182)
+        UI.text(self.medalText[i], mx + 14, 190)
       end
     end
   elseif sum.streak then
-    UI.text("daily streak: " .. sum.streak, 26, 182, "left", UI.bold)
+    UI.text("daily streak: " .. sum.streak, 24, 190, "left", UI.bold)
   end
-  if self.stamped then UI.stamp(self.stampText, 200, 120, self.t - 0.35) end
+  if self.stamped then UI.stamp(self.stampText, 226, 54, self.t - 0.35) end
 
   -- gear box
   UI.panel(306, 24, 88, 192, "plain")
   UI.text("GEARS", 350, 30, "center", UI.bold)
-  UI.text("+" .. self.dropped, 350, 48, "center", UI.bold)
+  UI.text(U.cached("res_drop", "+%d", self.dropped), 350, 48, "center", UI.bold)
   gfx.setColor(gfx.kColorBlack)
   gfx.drawLine(314, 188, 386, 188)
   gfx.drawLine(314, 150, 314, 188)
   gfx.drawLine(386, 150, 386, 188)
   for _, d in ipairs(self.gearDrops) do Art.gear(d.x, floor(d.y), 8, 8, d.a, true) end
-  UI.text("total " .. Save.data.gears, 350, 194, "center")
-  -- achievements
-  local ach = sum.achievements
-  if #ach > 0 and self.t > 1.0 then
-    UI.popup(24, 128, 260, 20 + #ach * 16, "ink")
-    for i = 1, math.min(3, #ach) do UI.textW("* " .. ach[i].name, 34, 132 + (i - 1) * 16) end
-  end
+  UI.text(U.cached("res_total", "total %d", Save.data.gears), 350, 194, "center")
   UI.hints(ResultsScene.HINTS)
 end
 
