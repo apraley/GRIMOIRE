@@ -318,17 +318,25 @@ end
 
 function PlayScene:drawHelp()
   local def = self.def
-  UI.popup(20, 16, 360, 208, "paper")
-  UI.text(def.title, 200, 26, "center", UI.bold)
-  local y = 48
-  for i = 1, #def.controls do
+  UI.popup(14, 14, 372, 212, "paper")
+  UI.text(def.title, 200, 24, "center", UI.bold)
+  -- controls in two columns
+  local n = #def.controls
+  local rows = math.ceil(n / 2)
+  for i = 1, n do
     local c = def.controls[i]
-    UI.glyph(c[1], 34, y)
-    UI.text(c[2], 64, y)
-    y = y + 20
+    local col = (i - 1) // rows
+    local row = (i - 1) % rows
+    local x = 28 + col * 178
+    local y = 44 + row * 18
+    UI.glyph(c[1], x, y)
+    UI.textLines(c[2], x + 28, y, 144, 1)
   end
-  if def.howto then UI.textBlock(def.howto, 34, y + 4, 330, UI.font, 0) end
-  UI.text("press any button", 200, 202, "center")
+  local ty = 48 + rows * 18
+  gfx.setColor(gfx.kColorBlack)
+  gfx.drawLine(28, ty - 3, 372, ty - 3)
+  if def.howto then UI.textLines(def.howto, 28, ty, 344, math.max(1, (200 - ty) // UI.lineH)) end
+  UI.text("press any button", 200, 204, "center")
 end
 
 function PlayScene:cranked(change, accel)
