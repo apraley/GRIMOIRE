@@ -632,7 +632,7 @@ function ex:draw(isTop)
   end
   gfx.setDrawOffset(0, 0)
   if self.fade > 0 then
-    gfx.setDitherPattern(1 - self.fade / 10, gfx.image.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(self.fade / 10, gfx.image.kDitherTypeBayer4x4)
     gfx.fillRect(0, 0, 400, 240)
     gfx.setColor(gfx.kColorBlack)
   end
@@ -646,7 +646,10 @@ function Explore.hud(isTop)
   local day = Clock.day(W.t)
   local dt = Clock.date(day)
   Gfx.text(Clock.DAYS[dt.wd + 1] .. " " .. Clock.MONTHS[dt.m] .. " " .. dt.d .. "  " .. Clock.hhmm(Clock.minute(W.t)), 6, 2, { white = true, bold = true })
-  Gfx.text(Areas.name(p.area), 200, 2, { white = true, align = "center" })
+  local an = Areas.name(p.area)
+  while #an > 3 and Gfx.textW(an) > 128 do an = an:sub(1, #an - 1) end
+  if an ~= Areas.name(p.area) then an = an .. "." end
+  Gfx.text(an, 228, 2, { white = true, align = "center" })
   Gfx.text(U.money(p.money), 394, 2, { white = true, align = "right", bold = true })
   -- pager icon
   local unread = Pager.unread()

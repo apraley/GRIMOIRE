@@ -95,7 +95,9 @@ function Secret.schematic(title, model)
           end
         end
       end
-      Gfx.text(f == 1 and "LOWER" or "UPPER", 8, y0 + 26, { white = true })
+      local lbl = f == 1 and "LOWER" or "UPPER"
+      Gfx.fill(4, y0 - 17, Gfx.textW(lbl, true) + 8, 16, "black")
+      Gfx.text(lbl, 8, y0 - 17, { white = true, bold = true })
     end
     if model then
       -- tiny figures: everyone currently in the mall

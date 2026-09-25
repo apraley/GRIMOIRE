@@ -147,8 +147,9 @@ local function sleeve(it, x, y, size)
     else for i = 0, 4 do gfx.fillRect(x + 8, y + 12 + i * (size // 6), size - 16, 4) end end
     gfx.setColor(gfx.kColorBlack)
     local band = it.n:match("^(.-) %- ") or it.n
+    while #band > 1 and Gfx.textW(band, true) > size - 8 do band = band:sub(1, #band - 1) end
     Gfx.fill(x, y + size - 22, size, 22, "black")
-    Gfx.text(band:sub(1, 18), x + 4, y + size - 20, { white = true, bold = true })
+    Gfx.text(band, x + 4, y + size - 20, { white = true, bold = true })
   elseif it.k == "vhs" then
     Gfx.fill(x + size // 6, y, size * 2 // 3, size, "black")
     Gfx.fill(x + size // 6 + 6, y + 10, size * 2 // 3 - 12, size // 2, (h % 2 == 0) and "gray" or "diag")

@@ -103,18 +103,21 @@ function Day.night(lines)
     Gfx.neon(0, 72, 400, 3, 2)
     Gfx.box(10, 80, 380, 156, "dark")
     Gfx.text(Clock.dateStr(day) .. " — NIGHT", 22, 88, { white = true, bold = true })
+    Gfx.text(U.money(p.money), 374, 88, { white = true, align = "right" })
     local y = 110
     for _, l in ipairs(self.summary) do y = y + Gfx.para(l, 22, y, 356, { white = true, maxLines = 2 }) end
     if #self.today > 0 then
       Gfx.text("AROUND THE MALL TODAY:", 22, y + 2, { white = true, bold = true })
       y = y + 20
       for i, t in ipairs(self.today) do
-        if y > 206 then break end
-        Gfx.text("- " .. t:sub(1, 52), 22, y, { white = true })
-        y = y + 16
+        if y > 176 then break end
+        local lines = Gfx.wrap("- " .. t, 350)
+        for k = 1, math.min(2, #lines) do
+          if y <= 192 then Gfx.text(lines[k], 22, y, { white = true }); y = y + 16 end
+        end
       end
     end
-    Gfx.text("A: sleep", 380, 218, { white = true, align = "right" })
+    Gfx.text("A: sleep", 374, 210, { white = true, align = "right", bold = true })
   end
   Scene.push(sc)
 end

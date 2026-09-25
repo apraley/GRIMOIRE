@@ -160,6 +160,7 @@ local function build(lk, dir, frame)
     rows[2] = "....OOOOOOOO...."; rows[3] = "...OOOOOOOOOO..."
   end
   gfx.pushContext(img)
+  gfx.setDrawOffset(0, 0)
   for y, row in ipairs(rows) do
     local x = 1
     local len = #row
@@ -231,6 +232,7 @@ function Sprites.portrait(n, mood, x, y)
     img = gfx.image.new(48, 48, gfx.kColorWhite)
     local r = U.rng(n.id or 0, "face")
     gfx.pushContext(img)
+    gfx.setDrawOffset(0, 0)
     -- background: a little mall-y dither
     gfx.setPattern(Gfx.P.dots); gfx.fillRect(0, 0, 48, 48)
     -- shoulders / shirt

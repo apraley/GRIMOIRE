@@ -182,7 +182,8 @@ B.SAVE = function()
   return {
     { text = "Save", act = function() Save.write(); Say("Saved.") end },
     { text = "Save and quit to title", act = function() Save.write(); Title.start() end },
-    { text = "Controls: D-pad walk, A talk/use, B menu. Crank: pager, racks, dials." },
+    { text = "D-pad: walk.  A: talk / use.  B: this menu." },
+    { text = "Crank: pager ticker, record racks, dials, wheels." },
   }
 end
 
@@ -222,14 +223,25 @@ end
 
 function ms:draw()
   Gfx.clear("black")
-  -- tabs
-  local x = 2
+  -- tabs (the strip scrolls so the selected tab is always visible)
+  local xs, x = {}, 0
   for i, t in ipairs(TABS) do
     local w = Gfx.textW(t, true) + 10
-    if i == self.tab then Gfx.fill(x, 2, w, 18, "white"); Gfx.text(t, x + 5, 3, { bold = true })
-    else Gfx.text(t, x + 5, 3, { white = true }) end
+    xs[i] = { x = x, w = w }
     x = x + w + 1
   end
+  local sel = xs[self.tab]
+  local shift = 0
+  if sel.x + sel.w > 384 then shift = sel.x + sel.w - 384 end
+  for i, t in ipairs(TABS) do
+    local tx = xs[i].x - shift + 8
+    if tx + xs[i].w > 0 and tx < 400 then
+      if i == self.tab then Gfx.fill(tx, 2, xs[i].w, 18, "white"); Gfx.text(t, tx + 5, 3, { bold = true })
+      else Gfx.text(t, tx + 5, 3, { white = true }) end
+    end
+  end
+  if shift > 0 then Gfx.tri(1, 8, "left", true) end
+  if x - shift > 392 then Gfx.tri(394, 8, "right", true) end
   Gfx.box(0, 22, 400, 218, "light")
   local vis = 9
   for i = self.top, math.min(#self.rows, self.top + vis - 1) do

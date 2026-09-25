@@ -21,13 +21,18 @@ Areas.ASPHALT, Areas.CAR, Areas.DARK, Areas.CAB, Areas.STAGE = 15, 16, 17, 18, 1
 Areas.CRATE, Areas.PIPE, Areas.HVAC, Areas.SKY, Areas.KIOSK = 20, 21, 22, 23, 24
 Areas.SHELF, Areas.DESK, Areas.DUST, Areas.PAPERED, Areas.GRATE = 25, 26, 27, 28, 29
 Areas.LOCKDOOR = 30
+Areas.LOUD = 31 -- arcade / cinema carpet
 
 local WALKABLE = { [0] = true, [7] = true, [12] = true, [13] = true, [14] = true, [15] = true,
-  [19] = true, [27] = true, [29] = true }
+  [19] = true, [27] = true, [29] = true, [31] = true }
 Areas.WALKABLE = WALKABLE
 
 local cache = {}
 function Areas.invalidate(id) if id then cache[id] = nil else cache = {} end end
+
+-- food court width grows with the number of stalls (5 tiles each)
+Areas.STALL = 5
+function Areas.fcW() return math.max(52, 4 + #(W.mall.foodStalls or {}) * Areas.STALL + 14) end
 
 -- ------------------------------------------------------------ grid helpers
 local function grid(id, w, h, fill, name, kind)
@@ -72,9 +77,10 @@ function Areas.walkable(a, tx, ty) return WALKABLE[get(a, tx, ty)] == true end
 function Areas.storefront(s)
   local court0 = W.mall.court0
   if s.row == "fc" then
-    if s.type == "cinema" then return "fc", 51, 8, 50, 8 end
-    local x = 2 + (s.stall - 1) * 4 + 1
-    return "fc", x, 3, x, 4
+    local fw = Areas.fcW()
+    if s.type == "cinema" then return "fc", fw - 1, 8, fw - 2, 8 end
+    local x = 2 + (s.stall - 1) * Areas.STALL + 2
+    return "fc", x, 4, x, 5
   end
   if s.row == "west" then return "c1", MallGen.ANCHOR_W - 1, 8, MallGen.ANCHOR_W, 8 end
   if s.row == "east" then return "c1", W.mall.w - MallGen.ANCHOR_W, 8, W.mall.w - MallGen.ANCHOR_W - 1, 8 end
@@ -228,7 +234,7 @@ local function buildConcourse(id, floor)
     rect(a, c0 + 6, 13, 6, 5, Areas.TILE2)
     for i = c0 + 7, c0 + 10 do door(a, i, h - 1, "lot", 18 + (i - c0 - 7), 2, { fx = i, fy = h - 2 }) end
     door(a, c0 + 2, 13, "sec", 3, 8, { fx = c0 + 2, fy = 12, label = "SECURITY" })
-    obj(a, "sign", c0 + 1, 13, 3, 1, { text = "SECURITY" })
+    obj(a, "sign", c0, 13, 5, 1, { text = "SECURITY" })
     rect(a, c0 + 5, 12, 2, 1, Areas.BENCH); obj(a, "bench", c0 + 5, 12, 2, 1)
     rect(a, c0 + 11, 12, 2, 1, Areas.BENCH); obj(a, "bench", c0 + 11, 12, 2, 1)
     spot(a, "hang", c0 + 6, 6); spot(a, "hang", c0 + 11, 6); spot(a, "hang", c0 + 5, 11)
@@ -240,7 +246,7 @@ local function buildConcourse(id, floor)
     for i = c0 + 7, c0 + 10 do door(a, i, 0, "fc", 24 + (i - c0 - 7), 16, { fx = i, fy = 1 }) end
     obj(a, "sign", c0 + 5, 0, 8, 1, { text = "FOOD COURT" })
     door(a, c0 + 2, 13, "mgmt", 3, 8, { fx = c0 + 2, fy = 12, label = "MALL OFFICE" })
-    obj(a, "sign", c0 + 1, 13, 3, 1, { text = "MALL OFFICE" })
+    obj(a, "sign", c0, 13, 5, 1, { text = "OFFICE" })
     obj(a, "phone", c1 - 2, 13, 1, 1)
     spot(a, "hang", c0 + 5, 6); spot(a, "hang", c0 + 12, 6); spot(a, "hang", c0 + 5, 11); spot(a, "hang", c0 + 12, 11)
   end
@@ -281,7 +287,7 @@ Areas.RACK_CATS = RACK_CATS
 local function buildStore(s)
   local w, h = interiorSize(s)
   local typ = s.type
-  local fl = (typ == "arcade" or typ == "cinema" or typ == "restaurant") and Areas.TILE2 or Areas.CARPET
+  local fl = (typ == "arcade" or typ == "cinema") and Areas.LOUD or (typ == "restaurant" and Areas.TILE2 or Areas.CARPET)
   local a = grid("s" .. s.id, w, h, fl, s.name, "store")
   a.store = s.id
   box(a, fl, Areas.WALL)
@@ -295,12 +301,17 @@ local function buildStore(s)
     door(a, 1, 0, "c2", ex, 8, { label = "2F" })
     rect(a, 1, 1, 2, 2, Areas.ESC)
   elseif s.row == "fc" then
-    door(a, mid - 1, h - 1, "fc", 50, 8); door(a, mid, h - 1, "fc", 50, 9)
+    door(a, mid - 1, h - 1, "fc", Areas.fcW() - 2, 8); door(a, mid, h - 1, "fc", Areas.fcW() - 2, 9)
   else
     door(a, mid - 1, h - 1, pa, fx, fy); door(a, mid, h - 1, pa, fx + 1, fy)
   end
   if s.type ~= "cinema" then
     door(a, w - 3, 0, "b" .. s.id, 5, 7, { staff = true, label = "EMPLOYEES" })
+  end
+  a.objs[#a.objs + 1] = { kind = "wallsign", x = math.floor(w / 2) - 3, y = 0, w = 6, h = 1, store = s.id }
+  local pr = U.rng(W.seed, "posters", s.id)
+  for _, px in ipairs({ 2, w - 6 }) do
+    if pr:chance(0.7) then a.objs[#a.objs + 1] = { kind = "wallposter", x = px, y = 0, w = 1, h = 1, seed = pr:next() } end
   end
   local cat = RACK_CATS[typ]
   local function counter(x, y, cw)
@@ -412,22 +423,24 @@ end
 
 -- ------------------------------------------------------------ food court
 local function buildFoodCourt()
-  local w, h = 52, 18
+  local w, h = Areas.fcW(), 18
   local a = grid("fc", w, h, Areas.TILE2, "Food Court", "fc")
   box(a, Areas.TILE2, Areas.WALL)
-  rect(a, 1, 0, w - 2, 2, Areas.FACADE)
-  rect(a, 1, 2, w - 2, 1, Areas.FLOOR) -- kitchen strip behind counters
+  rect(a, 1, 0, w - 2, 3, Areas.FACADE)
+  rect(a, 1, 3, w - 2, 1, Areas.FLOOR) -- kitchen strip behind counters
+  local SW = Areas.STALL
   for i, sid in ipairs(W.mall.foodStalls) do
-    local x = 2 + (i - 1) * 4
-    rect(a, x, 3, 3, 1, Areas.COUNTER)
-    obj(a, "stall", x, 3, 3, 1, { store = sid })
-    obj(a, "sign", x, 0, 3, 2, { store = sid })
-    spot(a, "work", x + 1, 2); spot(a, "queue", x + 1, 4)
+    local x = 2 + (i - 1) * SW
+    rect(a, x, 4, SW - 1, 1, Areas.COUNTER)
+    obj(a, "stall", x, 4, SW - 1, 1, { store = sid })
+    obj(a, "sign", x, 0, SW - 1, 2, { store = sid, stallSign = true })
+    spot(a, "work", x + 2, 3); spot(a, "queue", x + 2, 5)
   end
-  rect(a, 2 + #W.mall.foodStalls * 4, 3, w - 3 - (2 + #W.mall.foodStalls * 4), 1, Areas.WALL)
+  local endx = 2 + #W.mall.foodStalls * SW
+  if endx < w - 3 then rect(a, endx, 4, w - 3 - endx, 1, Areas.WALL) end
   local r = U.rng(W.seed, "fc")
   for ty = 7, 12, 3 do
-    for tx = 12, 44, 5 do
+    for tx = 12, w - 8, 5 do
       rect(a, tx, ty, 2, 1, Areas.TABLE)
       obj(a, "table", tx, ty, 2, 1)
       spot(a, "eat", tx, ty - 1); spot(a, "eat", tx + 1, ty + 1); spot(a, "hang", tx - 1, ty)
@@ -439,11 +452,11 @@ local function buildFoodCourt()
   for i = 24, 27 do door(a, i, h - 1, "c2", W.mall.court0 + 7 + (i - 24), 1) end
   door(a, w - 1, 8, "s" .. W.mall.cinema, 12, 12, { label = "CINEMA" })
   door(a, w - 1, 9, "s" .. W.mall.cinema, 12, 12, { label = "CINEMA" })
-  obj(a, "sign", w - 2, 6, 1, 2, { text = "CINEMA", neon = true })
+  obj(a, "sign", w - 9, 0, 6, 2, { text = "CINEPLEX 6", neon = true, cinema = true })
   obj(a, "phone", 10, 16, 1, 1)
   local cin = W.stores[W.mall.cinema]
   -- cinema's back room reachable from the fc kitchen strip
-  door(a, w - 3, 2, "b" .. cin.id, 5, 5, { staff = true })
+  door(a, w - 3, 3, "b" .. cin.id, 5, 5, { staff = true })
   return a
 end
 

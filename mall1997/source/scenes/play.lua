@@ -346,7 +346,7 @@ function Play.screenDoor(o)
       p.bans[tostring(s.id)] = day + 7
       Rumors.add("banned", -1, p.name .. " got kicked out of the Cineplex for sneaking in", 4, { n.id })
       Say("\"Ticket? No? Out. And don't come back this week.\"", { npc = n, name = n.first, mood = "angry",
-        after = function() Explore.go("fc", 50 * 16, 8 * 16 + 12, true) end })
+        after = function() Explore.go("fc", (Areas.fcW() - 3) * 16, 8 * 16 + 12, true) end })
     else
       Play.watch(cur.movie, o.screen)
     end

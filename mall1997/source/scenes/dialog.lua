@@ -30,9 +30,9 @@ function card:draw()
   Gfx.text(NPCGen.name(n) .. "  (" .. n.age .. ")", 14, 8, { white = true, bold = true })
   Gfx.text(roleLine(n), 14, 30, { white = true })
   local p = n.p
-  Gfx.text("FRIEND " .. hearts(p.f), 250, 8, { white = true })
+  Gfx.text("FRIEND " .. hearts(p.f), 250, 6, { white = true })
   Gfx.text("TRUST  " .. hearts(p.t), 250, 22, { white = true })
-  if Talk.romanceOK(n) then Gfx.text("CRUSH  " .. hearts(p.a * 2 - 100), 250, 36, { white = true }) end
+  if Talk.romanceOK(n) then Gfx.text("CRUSH  " .. hearts(p.a * 2 - 100), 250, 38, { white = true }) end
   if p.an > 30 then Gfx.text("ANNOYED", 180, 44, { white = true, bold = true }) end
   if p.fe > 30 then Gfx.text("SCARED", 110, 44, { white = true, bold = true }) end
 end

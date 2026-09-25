@@ -2,6 +2,20 @@
 
 Title = {}
 
+local logo
+-- big chunky title: text drawn into a small image and scaled up 3x
+local function logoImage()
+  if logo then return logo end
+  local gfx = playdate.graphics
+  local w = Gfx.textW("THE MALL", true) + 4
+  logo = gfx.image.new(w, 18, gfx.kColorClear)
+  gfx.pushContext(logo)
+  gfx.setDrawOffset(0, 0)
+  Gfx.text("THE MALL", 2, 0, { bold = true, white = true })
+  gfx.popContext()
+  return logo
+end
+
 local NAMES = { "Alex", "Sam", "Jordan", "Casey", "Jamie", "Robin", "Taylor", "Morgan", "Chris", "Dana" }
 
 function Title.start()
@@ -33,8 +47,10 @@ function Title.start()
     for i = 0, 40 do Gfx.fill((i * 97) % 400, (i * 37) % 90, 1, 1, "white") end
     Gfx.neon(58, 28, 284, 4, 1); Gfx.neon(58, 96, 284, 4, 2)
     Gfx.neon(58, 28, 4, 72, 3); Gfx.neon(338, 28, 4, 72, 4)
-    Gfx.text("THE MALL", 200, 40, { white = true, bold = true, align = "center" })
-    Gfx.text("~ 1 9 9 7 ~", 200, 66, { white = true, align = "center" })
+    local img = logoImage()
+    local lw = img:getSize()
+    img:drawScaled(200 - (lw * 3) // 2, 36, 3)
+    Gfx.text("~ 1 9 9 7 ~", 200, 78, { white = true, align = "center", bold = true })
     for i = 0, 9 do
       gfx.setColor(gfx.kColorWhite)
       gfx.drawLine(i * 44, 240, 200 + (i - 4.5) * 12, 110)
