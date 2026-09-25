@@ -133,6 +133,7 @@ undocumented API fails the run**.
 
 | Command | What it does |
 |---|---|
+| `tools/build_lua32.sh <lua-5.4-src>` | Builds a Lua with 32-bit integers and floats like the Playdate runtime. Run the other tools with it: stock Lua's 64-bit integers hide overflow bugs. |
 | `lua5.4 tools/apicheck.lua` | Static scan: every `playdate.*` / `gfx.*` reference must be documented. |
 | `lua5.4 tools/test_games.lua` | Runs all 9 job minigames and 4 arcade games with random input. |
 | `lua5.4 tools/flows.lua` | Scripted end-to-end play through the real UI: new game, shopping, shoplifting and getting caught, every dialog option, interview and shift, arcade and initials, prize wheel, movie, menus, the secret locked room, band gig, save/load, day cycles, doors and escalators. |

@@ -7,13 +7,21 @@ U = {}
 -- ------------------------------------------------------------------ RNG
 -- xorshift32 so that generation is identical on device, simulator and the
 -- headless harness (math.random differs between runtimes).
+--
+-- Playdate's Lua uses 32-bit integers while desktop Lua uses 64-bit ones, so
+-- everything here is written to produce the same bits under both: literals
+-- stay <= 0x7FFFFFFF, state is kept to its low 32 bits, and every value handed
+-- out is masked to a non-negative 31-bit integer.
+local M32 = (1 << 31) | 0x7FFFFFFF -- 0xFFFFFFFF on 64-bit, -1 (all bits) on 32-bit
+local M31 = 0x7FFFFFFF
+
 RNG = {}
 RNG.__index = RNG
 
 function RNG.new(seed)
   local s = math.tointeger(seed) or math.floor(seed)
-  s = s & 0xFFFFFFFF
-  if s == 0 then s = 0x9E3779B9 end
+  s = s & M32
+  if s == 0 then s = 0x1E3779B9 end
   local r = setmetatable({ s = s }, RNG)
   for _ = 1, 4 do r:next() end
   return r
@@ -21,15 +29,16 @@ end
 
 function RNG:next()
   local x = self.s
-  x = x ~ ((x << 13) & 0xFFFFFFFF)
-  x = x ~ (x >> 17)
-  x = x ~ ((x << 5) & 0xFFFFFFFF)
-  self.s = x & 0xFFFFFFFF
-  return self.s
+  x = x ~ ((x << 13) & M32)
+  x = (x & M32) >> 17 ~ x
+  x = x ~ ((x << 5) & M32)
+  x = x & M32
+  self.s = x
+  return x & M31
 end
 
 -- float in [0,1)
-function RNG:f() return self:next() / 4294967296.0 end
+function RNG:f() return self:next() / 2147483648.0 end
 -- integer in [a,b]
 function RNG:i(a, b) if b < a then return a end return a + (self:next() % (b - a + 1)) end
 function RNG:chance(p) return self:f() < p end
@@ -57,18 +66,18 @@ end
 
 -- stable hash of any number of values -> 32-bit int (for derived content)
 function U.hash(...)
-  local h = 2166136261
+  local h = 0x011C9DC5
   local args = { ... }
   for i = 1, #args do
-    local s = tostring(args[i])
-    for j = 1, #s do
-      h = h ~ s:byte(j)
-      h = (h * 16777619) & 0xFFFFFFFF
+    local str = tostring(args[i])
+    for j = 1, #str do
+      h = h ~ str:byte(j)
+      h = (h * 16777619) & M32
     end
     h = h ~ 0x5bd1e995
-    h = (h * 16777619) & 0xFFFFFFFF
+    h = (h * 16777619) & M32
   end
-  return h
+  return h & M31
 end
 
 -- a throwaway RNG derived from stable keys (used for content that is
