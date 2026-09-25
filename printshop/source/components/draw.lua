@@ -165,10 +165,15 @@ function Draw.checkbox(x, y, on, color)
 	gfx.setColor(gfx.kColorBlack)
 end
 
--- Dotted leader line between a label and a value.
+-- Dotted leader line between a label and a value: one pattern-filled 1px
+-- rect (a dot every 4px) instead of a drawPixel per dot.
+local LEADER_WHITE = { 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88 }
+local LEADER_BLACK = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88 }
 function Draw.leader(x1, x2, y, color)
-	gfx.setColor(color or Draw.fgColor())
-	for x = x1, x2, 3 do gfx.drawPixel(x, y) end
+	if x2 <= x1 then return end
+	-- Alpha-masked patterns: only the dots are drawn, the rest stays as is.
+	gfx.setPattern((color or Draw.fgColor()) == gfx.kColorWhite and LEADER_WHITE or LEADER_BLACK)
+	gfx.fillRect(x1, y, x2 - x1, 1)
 	gfx.setColor(gfx.kColorBlack)
 end
 
