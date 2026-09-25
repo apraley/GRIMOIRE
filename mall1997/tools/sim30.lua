@@ -10,6 +10,8 @@ import "main"
 
 local seed = tonumber(arg[1]) or 1997
 local days = tonumber(arg[2]) or 30
+local useBot = arg[3] == "--bot"
+if useBot then dofile(PD_TOOLS_DIR .. "bot.lua") end
 local t0 = os.clock()
 World.new(seed, "Alex")
 local genT = os.clock() - t0
@@ -33,17 +35,48 @@ SIM_HOOK = SIM_HOOK or function() end
 local t1 = os.clock()
 local target = W.t + days * 1440
 local samples = {}
-while W.t < target do
-  WorldSim.tick(5)
+-- snapshot for change metrics
+local snap = { pop = {}, rel = {}, cash = {} }
+for _, s in ipairs(W.stores) do snap.pop[s.id] = s.pop; snap.cash[s.id] = s.cash end
+for _, n in ipairs(W.npcs) do
+  local fr = 0
+  for _, rr in pairs(n.rel) do if rr.f >= 40 then fr = fr + 1 end end
+  snap.rel[n.id] = { friends = fr, partner = n.partner, job = n.job, crush = n.crush }
+end
+local visitsByNPC = {}
+local coLocated = 0
+local lastHour = -1
+WorldSim.onTick = function()
   local m = Clock.minute(W.t)
-  if m == 12 * 60 + 5 or m == 19 * 60 + 5 then
-    local inMall = 0
-    for a, list in pairs(NPCAI.byArea) do inMall = inMall + #list end
-    samples[#samples + 1] = { day = Clock.day(W.t), m = m, n = inMall }
+  local hour = math.floor(W.t / 60)
+  if hour ~= lastHour then
+    lastHour = hour
+    if m // 60 == 12 or m // 60 == 19 then
+      local inMall = 0
+      for a, list in pairs(NPCAI.byArea) do inMall = inMall + #list end
+      if m % 60 < 10 then samples[#samples + 1] = { day = Clock.day(W.t), m = m, n = inMall } end
+    end
+    for a, list in pairs(NPCAI.byArea) do
+      if #list > 1 then coLocated = coLocated + #list end
+      for _, n in ipairs(list) do
+        local v = visitsByNPC[n.id] or {}
+        v[a] = true
+        visitsByNPC[n.id] = v
+      end
+    end
   end
+end
+local botDay = -1
+while W.t < target do
+  if useBot and Clock.minute(W.t) >= 7 * 60 and Clock.day(W.t) > botDay then
+    botDay = Clock.day(W.t)
+    Bot.day(botDay)
+  end
+  WorldSim.tick(5)
   SIM_HOOK()
 end
 print(("simulated %d days in %.2fs"):format(days, os.clock() - t1))
+REPORT_SNAP, REPORT_VISITS, REPORT_COLOC = snap, visitsByNPC, coLocated
 REPORT = { samples = samples }
 
 -- ------------------------------------------------------------------ report
@@ -55,6 +88,54 @@ for i, s in ipairs(samples) do
   if i <= 60 then line[#line + 1] = s.n end
 end
 print(table.concat(line, " "))
+
+hdr("CHANGE OVER THE RUN")
+do
+  local popMoved, cashDown, cashUp = 0, 0, 0
+  for _, s in ipairs(W.stores) do
+    if snap.pop[s.id] then
+      if math.abs(s.pop - snap.pop[s.id]) >= 8 then popMoved = popMoved + 1 end
+      if s.cash < snap.cash[s.id] then cashDown = cashDown + 1 else cashUp = cashUp + 1 end
+    end
+  end
+  local newFriends, lostFriends, jobChanges, partnerChanges, crushChanges = 0, 0, 0, 0, 0
+  for _, n in ipairs(W.npcs) do
+    local o = snap.rel[n.id]
+    if o then
+      local fr = 0
+      for _, rr in pairs(n.rel) do if rr.f >= 40 then fr = fr + 1 end end
+      if fr > o.friends then newFriends = newFriends + (fr - o.friends) elseif fr < o.friends then lostFriends = lostFriends + (o.friends - fr) end
+      if n.job ~= o.job then jobChanges = jobChanges + 1 end
+      if n.partner ~= o.partner then partnerChanges = partnerChanges + 1 end
+      if n.crush ~= o.crush then crushChanges = crushChanges + 1 end
+    end
+  end
+  local areasPer, cnt, never = 0, 0, 0
+  for _, n in ipairs(W.npcs) do
+    local v = visitsByNPC[n.id]
+    if v then areasPer = areasPer + U.count(v); cnt = cnt + 1 else never = never + 1 end
+  end
+  print(("stores whose popularity moved >=8: %d; cash down %d / up %d"):format(popMoved, cashDown, cashUp))
+  print(("friend edges +%d / -%d; NPCs whose job changed %d; partner changes %d; crush changes %d"):format(newFriends, lostFriends, jobChanges, partnerChanges, crushChanges))
+  print(("NPCs seen in the mall: %d (never: %d), avg distinct areas each: %.1f; co-location samples %d"):format(cnt, never, cnt > 0 and areasPer / cnt or 0, coLocated))
+  local nevers = {}
+  for _, n in ipairs(W.npcs) do if not visitsByNPC[n.id] and n.status == "active" then nevers[n.role] = (nevers[n.role] or 0) + 1 end end
+  local nl = {}
+  for _, k in ipairs(U.keys(nevers)) do nl[#nl + 1] = k .. "=" .. nevers[k] end
+  print("never visited by role: " .. table.concat(nl, " "))
+end
+if useBot then
+  hdr("PLAYER BOT")
+  local p = W.p
+  print(("money %s job %s rep %d conf %d partner %s record %d days %d fame %.0f"):format(U.money(p.money), p.job and (Jobs.title() .. " @ " .. Jobs.placeName()) or "none",
+    math.floor(p.rep or 0), math.floor(p.conf), p.partner and W.npcs[p.partner].first or "-", p.record or 0, p.stats.days, p.fame))
+  local met, fr = 0, 0
+  for _, n in ipairs(W.npcs) do if n.p.met then met = met + 1 end; if n.p.f > 30 then fr = fr + 1 end end
+  local heard = 0
+  for _, rm in ipairs(W.rumors) do if rm.about == -1 then heard = heard + rm.n end end
+  print(("met %d, friends %d, people who've heard rumors about you %d"):format(met, fr, heard))
+  for i = math.max(1, #Bot.log - 25), #Bot.log do print("  " .. Bot.log[i]) end
+end
 
 hdr("NPC SCHEDULES (sample)")
 local shown = 0
@@ -80,6 +161,9 @@ for _, s in ipairs(W.stores) do
 end
 table.sort(cashes)
 local function pct(t, p) return t[math.max(1, math.floor(#t * p))] end
+local profitable = 0
+for _, s in ipairs(W.stores) do if s.open and (s.profitWeek or 0) > 0 then profitable = profitable + 1 end end
+print(("last week profitable: %d of %d"):format(profitable, open))
 print(("open %d, troubled %d, on sale %d, cash p10 $%d p50 $%d p90 $%d"):format(open, troubled, sale,
   math.floor(pct(cashes, 0.1)), math.floor(pct(cashes, 0.5)), math.floor(pct(cashes, 0.9))))
 local sample = {}

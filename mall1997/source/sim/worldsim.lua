@@ -30,6 +30,7 @@ function WorldSim.newDay(day)
     MusicSim.weekly(day)
     Trends.weekly(day)
     Security.weekly(day)
+    Social.weekly()
   end
   if info.wd == 5 then CinemaSim.weekly(day) end
   Stores.staffing(day)
@@ -58,6 +59,7 @@ function WorldSim.tick(dt)
     Social.update()
   end
   if W.p.atMall then PlayerSim.tick(dt) end
+  if WorldSim.onTick then WorldSim.onTick() end
 end
 
 -- run the world forward to time t in steps of `step` minutes.

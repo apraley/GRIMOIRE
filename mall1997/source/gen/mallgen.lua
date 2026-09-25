@@ -259,9 +259,14 @@ function MallGen.linkNeighbors(W)
       if list[i + 1] then U.addUnique(s.nbr, list[i + 1].store) end
     end
   end
+  -- neighbours start with some history: the arcade has always been loud
   for _, s in ipairs(W.stores) do
     for _, n in ipairs(s.nbr) do
-      if s.nrel[n] == nil then s.nrel[n] = 0 end
+      if s.nrel[n] == nil then
+        local o = W.stores[n]
+        local v = o.nrel[s.id] or ((U.hash(W.seed, math.min(s.id, n), math.max(s.id, n)) % 61) - 30)
+        s.nrel[n] = v; o.nrel[s.id] = v
+      end
     end
   end
   local fs = W.mall.foodStalls or {}

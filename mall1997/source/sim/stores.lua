@@ -153,7 +153,7 @@ function Stores.expectedWeekly(s, pop, totalW)
   s.pop = pop
   local w = Stores.weight(s, Clock.day(W.t))
   s.pop = saved
-  local visits = 5600 * 7 * 3 * w / totalW
+  local visits = 4500 * 7 * 3 * w / totalW
   return visits * T.conv * T.ticket
 end
 
@@ -213,8 +213,11 @@ function Stores.daily(day)
       s.salesDay = math.floor(rev)
       s.salesWeek = (s.salesWeek or 0) + rev
       s.visitsDay = math.floor(visits)
-      local units = visits * T.conv * 0.6
-      s.stock = U.clamp(s.stock - units * 0.9, 0, 100)
+      -- stock: what sells is reordered (paid for in COGS) unless the store
+      -- is broke and suppliers put it on credit hold
+      local sold = visits * T.conv * 0.15
+      local reorder = s.cash > 0 and sold * 1.05 + 1 or sold * 0.35
+      s.stock = U.clamp(s.stock - sold + reorder, 0, 100)
     end
   end
 end
@@ -230,9 +233,8 @@ function Stores.weekly(day)
       s.profitWeek = math.floor(s.salesWeek - (s.costWeek or 0))
       s.costWeek = 0
       local weekCost = s.rent / 4.3
-      -- restock with what they can afford
-      if s.cash > 0 then s.stock = U.clamp(s.stock + r:i(25, 60), 0, 100)
-      else s.stock = U.clamp(s.stock + r:i(0, 20), 0, 100) end
+      -- a store in the black refreshes its displays
+      if s.cash > 0 then s.stock = U.clamp(s.stock + r:i(5, 15), 0, 100) end
       -- popularity drifts toward a base with trends and noise
       local target = 22 + (s.q or 0.5) * 56 + (Trends.storeBoost(s) - 1) * 60 + (s.buzz or 0)
       if s.feud then target = target - 4 end
@@ -251,7 +253,7 @@ function Stores.weekly(day)
       end
       -- a struggling store gets a new manager, or closes
       if not s.closing and s.type ~= "department" and s.type ~= "cinema" and s.id ~= W.mall.arcade then
-        s.patience = s.patience or (3 + U.hash(W.seed, s.id) % 7)
+        s.patience = s.patience or (2 + U.hash(W.seed, s.id) % 7)
         if ((s.trouble or 0) >= s.patience or (s.cash < -60000 * 100)) and closingsThisWeek < 2 then
           closingsThisWeek = closingsThisWeek + 1
           Stores.announceClosing(s, day, r)

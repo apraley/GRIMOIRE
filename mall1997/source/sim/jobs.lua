@@ -183,6 +183,7 @@ function Jobs.context(sh)
   end
   local late = Clock.minute(W.t) > sh.s + 10
   sh.late = late
+  sh.inAt = math.max(sh.s, Clock.minute(W.t))
   return {
     rng = r, store = store, difficulty = U.clamp(0.2 + j.rank * 0.12 + (Clock.info(sh.day).weekend and 0.15 or 0), 0, 1),
     role = ({ "clerk", "lead", "assistant", "manager" })[j.rank], music = W.music, movies = W.movies,
@@ -195,7 +196,7 @@ function Jobs.finish(sh, res)
   local j = p.job
   if not j then return "" end
   sh.done = true
-  local mins = sh.e - math.max(sh.s, math.min(Clock.minute(W.t), sh.e - 60))
+  local mins = sh.e - (sh.inAt or sh.s)
   local hours = math.max(1, mins / 60)
   local pay = math.floor(hours * j.wage + (res.tips or 0))
   p.money = p.money + pay

@@ -185,6 +185,26 @@ function Social.update()
 end
 
 -- ------------------------------------------------------------------ daily
+-- relationships fade without contact: weekly drift toward neutral, and
+-- near-zero acquaintances are forgotten entirely (keeps rel tables small)
+function Social.weekly()
+  for _, n in ipairs(W.npcs) do
+    if n.status == "active" then
+      for id, rr in pairs(n.rel) do
+        local keep = (n.partner == id) or (n.crush == id) or (n.parent == id) or (n.kid == id)
+        rr.f = rr.f * 0.9
+        if rr.a and not keep then rr.a = rr.a * 0.9 end
+        if not keep and math.abs(rr.f) < 3 and (rr.a or 0) < 5 then n.rel[id] = nil end
+      end
+      -- the player fades too, a little
+      local p = n.p
+      if p.met then
+        p.f = p.f * 0.97; p.an = p.an * 0.8; p.fe = p.fe * 0.85
+      end
+    end
+  end
+end
+
 function Social.daily(day)
   local r = U.rng(W.seed, "socday", day)
   for _, n in ipairs(W.npcs) do
