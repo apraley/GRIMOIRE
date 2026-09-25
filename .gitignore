@@ -3,3 +3,6 @@ __pycache__/
 *.pyo
 .grimoire/
 *.grim
+# Playdate build output
+*.pdx/
+printshop/tests/out/

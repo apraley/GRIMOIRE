@@ -1,0 +1,7 @@
+name=PRINT SHOP
+author=apraley
+description=A tiny 1-bit print workshop: watch prints, manage filament, queue jobs, calibrate, log maintenance, and take advice from the Benchy Captain.
+bundleID=com.apraley.printshop
+version=1.0.0
+buildNumber=1
+imagePath=launcher
