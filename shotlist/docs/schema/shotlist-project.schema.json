@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shotlist.local/schema/shotlist-interchange-v1.json",
+  "title": "SHOT LIST interchange documents v1",
+  "description": "Documents accepted by DATA > IMPORT and produced by EXPORT. Values outside the vocabularies are allowed (kept as custom); see docs/SCHEMA.md for normalisation rules.",
+  "oneOf": [ { "$ref": "#/$defs/projectDoc" }, { "$ref": "#/$defs/shotsDoc" } ],
+  "$defs": {
+    "status": { "type": "string", "examples": ["NOT SHOT", "UP NEXT", "SHOOTING", "GOT IT", "PICKUP", "CUT"] },
+    "size": { "type": "string", "examples": ["ECU", "CU", "MCU", "MS", "MWS", "WS", "EWS", "INSERT", "OTS", "POV", "2-SHOT"] },
+    "move": { "type": "string", "examples": ["LOCKED", "PAN", "TILT", "DOLLY", "PUSH", "PULL", "TRACK", "HANDHELD", "GIMBAL", "CRANE", "DRONE"] },
+    "priority": { "oneOf": [ { "type": "integer", "minimum": 1, "maximum": 3 }, { "type": "string" } ] },
+    "header": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" }, "client": { "type": "string" }, "director": { "type": "string" },
+        "dp": { "type": "string" }, "producer": { "type": "string" }, "notes": { "type": "string" },
+        "template": { "type": "string" },
+        "cast": { "type": "array", "items": { "type": "string" } },
+        "locations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "take": {
+      "type": "object",
+      "properties": {
+        "n": { "type": "integer", "minimum": 1 },
+        "t": { "type": "integer", "description": "Playdate epoch seconds (since 2000-01-01 UTC)" },
+        "rating": { "type": "string", "enum": ["", "GREAT", "GOOD", "BAD", "TECH"] },
+        "circle": { "type": "boolean" }, "tech": { "type": "string" }, "perf": { "type": "string" }, "note": { "type": "string" }
+      },
+      "required": ["n"]
+    },
+    "shot": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "export only; recomputed on import" },
+        "num": { "type": "string" }, "desc": { "type": "string" }, "size": { "$ref": "#/$defs/size" },
+        "move": { "$ref": "#/$defs/move" }, "lens": { "type": "string" }, "subject": { "type": "string" },
+        "priority": { "$ref": "#/$defs/priority" }, "est": { "type": "number", "minimum": 0 },
+        "status": { "$ref": "#/$defs/status" }, "notes": { "type": "string" },
+        "startedAt": { "type": "integer" }, "doneAt": { "type": "integer" },
+        "takes": { "type": "array", "items": { "$ref": "#/$defs/take" } }
+      }
+    },
+    "setup": {
+      "type": "object",
+      "properties": {
+        "letter": { "type": "string" }, "camera": { "type": "string" }, "lens": { "type": "string" },
+        "fps": { "type": "string" }, "res": { "type": "string" }, "wb": { "type": "string" }, "iso": { "type": "string" },
+        "shutter": { "type": "string", "description": "angle in degrees, or 1/x" }, "nd": { "type": "string" },
+        "support": { "type": "string" }, "lighting": { "type": "string" }, "audio": { "type": "string" },
+        "shots": { "type": "array", "items": { "$ref": "#/$defs/shot" } }
+      }
+    },
+    "note": {
+      "type": "object",
+      "properties": {
+        "tag": { "type": "string", "examples": ["WARDROBE", "PROP", "HAIR", "POSITION", "EYELINE", "LIGHT", "CAMERA", "AUDIO"] },
+        "text": { "type": "string" }, "flag": { "type": "boolean" }, "resolved": { "type": "boolean" }, "t": { "type": "integer" }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "properties": {
+        "number": { "type": "string" }, "desc": { "type": "string" }, "location": { "type": "string" },
+        "cast": { "type": "string" }, "status": { "$ref": "#/$defs/status" },
+        "notes": { "type": "array", "items": { "$ref": "#/$defs/note" } },
+        "setups": { "type": "array", "items": { "$ref": "#/$defs/setup" } }
+      }
+    },
+    "day": {
+      "type": "object",
+      "properties": {
+        "label": { "type": "string" }, "date": { "type": "string", "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$" },
+        "location": { "type": "string" }, "call": { "type": "string", "pattern": "^(\\d{1,2}:\\d{2})?$" },
+        "crewNotes": { "type": "string" }, "weather": { "type": "string" },
+        "scenes": { "type": "array", "items": { "$ref": "#/$defs/scene" } }
+      }
+    },
+    "projectDoc": {
+      "type": "object",
+      "required": ["format", "version", "project"],
+      "properties": {
+        "format": { "const": "shotlist.project" },
+        "version": { "const": 1 },
+        "schema": { "type": "integer" },
+        "exportedAt": { "type": "string" },
+        "project": {
+          "allOf": [ { "$ref": "#/$defs/header" } ],
+          "properties": { "days": { "type": "array", "items": { "$ref": "#/$defs/day" } } }
+        },
+        "gear": { "type": "object" }
+      }
+    },
+    "flatRow": {
+      "type": "object",
+      "properties": {
+        "day": { "type": "string" }, "date": { "type": "string" }, "scene": { "type": ["string", "number"] },
+        "sceneDesc": { "type": "string" }, "location": { "type": "string" }, "cast": { "type": "string" },
+        "setup": { "type": "string" }, "camera": { "type": "string" }, "setupLens": { "type": "string" },
+        "fps": { "type": "string" }, "res": { "type": "string" }, "wb": { "type": "string" }, "iso": { "type": "string" },
+        "shutter": { "type": "string" }, "nd": { "type": "string" }, "support": { "type": "string" },
+        "lighting": { "type": "string" }, "audio": { "type": "string" },
+        "shot": { "type": ["string", "number"] }, "desc": { "type": "string" }, "size": { "type": "string" },
+        "move": { "type": "string" }, "lens": { "type": "string" }, "subject": { "type": "string" },
+        "priority": { "$ref": "#/$defs/priority" }, "est": { "type": ["number", "string"] },
+        "status": { "type": "string" }, "notes": { "type": "string" }
+      }
+    },
+    "shotsDoc": {
+      "type": "object",
+      "required": ["format", "version", "shots"],
+      "properties": {
+        "format": { "const": "shotlist.shots" },
+        "version": { "const": 1 },
+        "project": { "$ref": "#/$defs/header" },
+        "shots": { "type": "array", "maxItems": 2000, "items": { "$ref": "#/$defs/flatRow" } }
+      }
+    }
+  }
+}

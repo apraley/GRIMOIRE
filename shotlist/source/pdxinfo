@@ -1,0 +1,6 @@
+name=SHOT LIST
+author=SHOT LIST
+description=Production shot list, take logger and slate for one-handed use on set.
+bundleID=com.shotlist.playdate
+version=1.0.0
+buildNumber=1
