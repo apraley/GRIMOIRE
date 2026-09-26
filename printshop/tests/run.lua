@@ -1,0 +1,1489 @@
+-- PRINT SHOP headless test suite.
+--   lua5.4 tests/run.lua            (from the printshop/ directory)
+--
+-- Boots the real source tree against the strict Playdate mock, then runs
+-- domain tests (persistence, migration, the finish-print transaction,
+-- providers, Captain) and UI tests that drive every screen with input.
+
+TEST_DIR = "tests/"
+SOURCE_DIR = "source/"
+
+dofile(TEST_DIR .. "mock_playdate.lua")
+
+local results = { pass = 0, fail = 0, failures = {} }
+
+local function test(name, fn)
+	local ok, err = xpcall(fn, debug.traceback)
+	if ok then
+		results.pass = results.pass + 1
+		io.write(".")
+	else
+		results.fail = results.fail + 1
+		results.failures[#results.failures + 1] = name .. "\n" .. tostring(err)
+		io.write("F")
+	end
+	io.flush()
+end
+
+local function eq(a, b, msg)
+	if a ~= b then error((msg or "") .. " expected " .. tostring(b) .. ", got " .. tostring(a), 2) end
+end
+local function ok(v, msg)
+	if not v then error(msg or "assertion failed", 2) end
+end
+local function near(a, b, eps, msg)
+	if math.abs(a - b) > (eps or 1e-6) then error((msg or "") .. " expected ~" .. tostring(b) .. ", got " .. tostring(a), 2) end
+end
+
+local B = {
+	A = playdate.kButtonA, B = playdate.kButtonB, UP = playdate.kButtonUp,
+	DOWN = playdate.kButtonDown, LEFT = playdate.kButtonLeft, RIGHT = playdate.kButtonRight,
+}
+
+-- Runs n idle frames.
+local function frames(n, dt)
+	for _ = 1, n or 1 do MOCK.frame(nil, 0, dt) end
+end
+-- Presses a button for one frame, then lets it go for one frame.
+local function press(b, n)
+	for _ = 1, n or 1 do
+		MOCK.frame({ b }, 0)
+		MOCK.frame(nil, 0)
+	end
+end
+local function crank(deg, n)
+	for _ = 1, n or 1 do MOCK.frame(nil, deg) end
+end
+
+local function topName()
+	local top = Screens.top()
+	for name, cls in pairs(_G) do
+		if type(cls) == "table" and getmetatable(top) == cls then return name end
+	end
+	if top and top.overlay then return "overlay" end
+	return "?"
+end
+
+-- Fresh boot from an empty datastore (or given files).
+local function boot(files, keepIntro)
+	MOCK.files = files or {}
+	MOCK.keyboardVisible = false
+	Events.reset()
+	Screens.stack = {}
+	Toast.queue, Toast.current = {}, nil
+	Store.data = nil
+	Printing.provider = nil
+	App.init()
+	-- Skip the first-launch Captain tour unless a test wants it.
+	if not keepIntro then Store.data.captain.seenIntro = true end
+	frames(2)
+end
+
+---------------------------------------------------------------------------
+-- boot (main.lua runs App.init on import)
+
+import "main"
+frames(3)
+
+test("boot seeds a demo shop and shows the workshop", function()
+	eq(topName(), "HomeScreen")
+	ok(Store.loadReport.seeded, "seeded")
+	eq(#Store.data.spools, 10)
+	ok(#Store.data.jobs >= 12, "jobs")
+	ok(#Store.data.history >= 30, "history")
+	eq(Printing.snapshot().state, "PRINTING")
+	ok(MOCK.files.printshop ~= nil, "saved on boot")
+end)
+
+test("seed stats reproduce the PETG / OVERTURE example", function()
+	local a = Stats.combo("PETG", "OVERTURE")
+	eq(a.prints, 12, "prints")
+	eq(a.failures, 3, "failures")
+	eq(a.topCause, "adhesion", "top cause")
+	eq(a.avgNozzle, 242, "avg nozzle")
+end)
+
+test("util: wrap, template, durations, hash stability", function()
+	local lines = Text.wrap("Arrr. Stringing off the port bow. I'd inspect yer temperature.", 20)
+	for _, l in ipairs(lines) do ok(#l <= 20, "line too long: " .. l) end
+	eq(U.template("{a}-{b}-{c}", { a = 1, b = "x" }), "1-x-{c}")
+	eq(U.fmtDuration(3900), "1h05m")
+	eq(U.fmtDuration(59), "59s")
+	eq(U.hash("benchy"), U.hash("benchy"))
+	ok(U.hash("benchy") ~= U.hash("benchY"), "hash differs")
+	local r1, r2 = Rng.new(42), Rng.new(42)
+	for _ = 1, 50 do eq(r1:next(), r2:next()) end
+end)
+
+test("font covers every printable ASCII char", function()
+	for c = 32, 126 do
+		local ch = string.char(c)
+		ok(ch == " " or Text.glyphs[ch] ~= nil, "missing glyph " .. ch)
+	end
+	for name, ch in pairs(FontData.icon) do ok(Text.glyphs[ch], "icon " .. name) end
+end)
+
+---------------------------------------------------------------------------
+-- persistence
+
+test("save/load roundtrip through JSON keeps everything", function()
+	App.saveAll()
+	local before = {
+		spools = #Store.data.spools, jobs = #Store.data.jobs, history = #Store.data.history,
+		cal = 0, nextId = Store.data.meta.nextId,
+	}
+	for _ in pairs(Store.data.calibrations) do before.cal = before.cal + 1 end
+	local files = { printshop = MOCK.files.printshop }
+	boot(files)
+	ok(not Store.loadReport.seeded, "not reseeded")
+	eq(#Store.data.spools, before.spools)
+	eq(#Store.data.jobs, before.jobs)
+	eq(#Store.data.history, before.history)
+	local cal = 0
+	for k, p in pairs(Store.data.calibrations) do cal = cal + 1 eq(k, p.key) end
+	eq(cal, before.cal)
+	ok(Store.data.meta.nextId >= before.nextId, "nextId kept")
+	eq(Printing.snapshot().state, "PRINTING", "demo print resumed")
+end)
+
+test("corrupt save is backed up and replaced", function()
+	boot({ printshop = '"garbage"' })
+	ok(Store.loadReport.seeded, "seeded")
+	ok(MOCK.files["printshop-corrupt"] ~= nil, "backup written")
+	eq(topName(), "HomeScreen")
+end)
+
+test("partial / damaged records are repaired", function()
+	local doc = json.decode(MOCK.files.printshop)
+	doc.spools[1].remainingGrams = "lots"
+	doc.spools[2].material = "UNOBTAINIUM"
+	doc.jobs[3].status = "EXPLODED"
+	doc.jobs[4].spoolId = "s999"
+	doc.jobs[5].id = doc.jobs[6].id          -- duplicate id
+	doc.history[1].outcome = "failed"
+	doc.history[1].cause = nil
+	doc.settings = nil
+	doc.maintenance.tasks[1].printerId = "p404"
+	boot({ printshop = json.encode(doc) })
+	local d = Store.data
+	eq(type(d.spools[1].remainingGrams), "number")
+	eq(d.spools[2].material, "OTHER")
+	eq(d.jobs[3].status, "IDEA")
+	eq(d.jobs[4].spoolId, nil)
+	ok(d.jobs[5].id ~= d.jobs[6].id, "ids unique")
+	eq(d.history[1].cause, "unknown")
+	eq(d.settings.lowSpoolGrams, 150)
+	eq(d.maintenance.tasks[1].printerId, "p1")
+end)
+
+test("v1 save migrates to current schema", function()
+	local now = MOCK.nowSec
+	local v1 = {
+		version = 1,
+		meta = { nextId = 20, createdAt = now - 100 * 86400 },
+		printers = { { id = "p1", name = "A1 MINI", provider = "demo", stats = { prints = 3, printSeconds = 36000 } } },
+		spools = {
+			{ id = "s1", manufacturer = "BAMBU", material = "PLA", color = "RED", nominalGrams = 1000, remaining = 400, temp = 215, cost = 20 },
+		},
+		jobs = {
+			{ id = "j1", name = "OLD BOAT", status = "ARCHIVED", spoolId = "s1", material = "PLA" },
+			{ id = "j2", name = "NEW BOAT", status = "QUEUED", spoolId = "s1", material = "PLA" },
+		},
+		history = {
+			{ id = "h1", jobId = "j1", name = "OLD BOAT", at = now - 5 * 86400, ok = true, grams = 15, spoolId = "s1", material = "PLA" },
+			{ id = "h2", jobId = "j1", name = "OLD BOAT", at = now - 6 * 86400, ok = false, grams = 5, spoolId = "s1", material = "PLA" },
+		},
+		failures = {
+			{ id = "f1", jobId = "j1", at = now - 6 * 86400, cause = "adhesion", spoolId = "s1" },
+			{ id = "f2", jobId = "j9", at = now - 9 * 86400, cause = "clog", spoolId = "s1", grams = 3, material = "PLA" },
+		},
+		maintenance = {
+			{ id = "m1", kind = "lube", name = "LUBE", interval = { kind = "hours", value = 50 }, last = now - 10 * 86400 },
+			{ id = "m2", kind = "bed_clean", name = "BED", interval = { kind = "days", value = 7 }, last = now - 3 * 86400 },
+		},
+		calibrations = { PLA = { nozzle = 212, bed = 58, flow = 0.97 } },
+	}
+	boot({ printshop = json.encode(v1) })
+	local d = Store.data
+	eq(Store.loadReport.migratedFrom, 1)
+	ok(MOCK.files["printshop-v1"] ~= nil, "v1 backup kept")
+	eq(d.schema, Schema.CURRENT)
+	local s = Store.spool("s1")
+	eq(s.remainingGrams, 400)
+	eq(s.favNozzle, 215)
+	eq(s.location, "SHELF")
+	local j1 = Store.job("j1")
+	eq(j1.archived, true)
+	eq(j1.status, "COMPLETE")
+	eq(#d.history, 3, "orphan failure became a history row")
+	local h2 = U.findById(d.history, "h2")
+	eq(h2.outcome, "failed")
+	eq(h2.cause, "adhesion")
+	local lube = U.findById(d.maintenance.tasks, "m1")
+	eq(lube.intervalHours, 50)
+	eq(lube.lastAt, now - 10 * 86400)
+	local bed = U.findById(d.maintenance.tasks, "m2")
+	eq(bed.intervalDays, 7)
+	local p = d.calibrations["p1|PLA|ANY"]
+	ok(p, "calibration rekeyed")
+	eq(p.nozzleTemp, 212)
+	near(p.flowRatio, 0.97, 1e-9)
+	-- New jobs pick up the migrated profile.
+	local j = Queue.add({ name = "T", spoolId = "s1" })
+	eq(j.nozzleTemp, 212)
+	ok(d.meta.nextId > 20, "ids continue")
+	-- The migrated doc survives another save/load.
+	App.saveAll()
+	boot({ printshop = MOCK.files.printshop })
+	ok(Store.loadReport.migratedFrom == nil, "no second migration")
+	eq(Store.spool("s1").favNozzle, 215)
+end)
+
+test("newer-schema save is backed up, not downgraded", function()
+	local doc = json.decode(MOCK.files.printshop)
+	doc.schema = 99
+	boot({ printshop = json.encode(doc) })
+	ok(Store.loadReport.newer, "flagged newer")
+	ok(MOCK.files["printshop-v99"] ~= nil, "backup")
+end)
+
+test("empty shop: every screen renders its empty state", function()
+	boot({})
+	App.resetData(true)
+	frames(2)
+	eq(#Store.data.spools, 0)
+	eq(#Store.data.jobs, 0)
+	for _, st in ipairs(HomeScreen.STATIONS) do
+		Screens.popToRoot()
+		Screens.top():open(st.id)
+		frames(3)
+		-- Close any dialog the screen opened (Captain greeting etc.).
+		for _ = 1, 6 do press(B.A) end
+		frames(2)
+	end
+	Screens.popToRoot()
+	eq(topName(), "HomeScreen")
+	ok(#Captain.candidates() > 0, "captain still has something to say")
+end)
+
+---------------------------------------------------------------------------
+-- the interconnected finish transaction
+
+test("completing a queued print ripples through every tool", function()
+	boot({})
+	local j = Store.job("j5")                 -- SD CARD WALLET, READY, s10
+	local s = Store.spool(j.spoolId)
+	local p = Store.activePrinter()
+	local before = {
+		grams = s.remainingGrams, ok = s.successCount, prints = p.stats.prints,
+		secs = p.stats.printSeconds, hist = #Store.data.history, ledger = #Store.data.consumption,
+		inbox = #Store.data.captain.inbox,
+	}
+	local h = Printing.markComplete(j)
+	eq(j.status, "COMPLETE")
+	ok(j.completedAt > 0, "completed date")
+	near(s.remainingGrams, before.grams - j.estGrams, 1e-6, "filament")
+	eq(s.successCount, before.ok + 1, "spool usage")
+	eq(#Store.data.history, before.hist + 1, "history")
+	eq(h.outcome, "success")
+	eq(#Store.data.consumption, before.ledger + 1, "ledger")
+	eq(p.stats.prints, before.prints + 1, "printer stats")
+	eq(p.stats.printSeconds, before.secs + j.estMinutes * 60, "hours")
+	ok(#Store.data.captain.inbox > before.inbox, "captain notified")
+	local proj = U.find(Stats.projects(), function(x) return x.name == "" end)
+	eq(proj, nil)
+end)
+
+test("a failed print consumes filament and feeds failure stats", function()
+	local j = Store.job("j3")                 -- HEX PEN CUP, s2
+	local s = Store.spool(j.spoolId)
+	local g, f = s.remainingGrams, s.failCount
+	local combo = Stats.combo(s.material, s.manufacturer)
+	Printing.markFailed(j, "stringing", "wisps", 20, 0.3)
+	eq(j.status, "FAILED")
+	near(s.remainingGrams, g - 20, 1e-6)
+	eq(s.failCount, f + 1)
+	local after = Stats.combo(s.material, s.manufacturer)
+	eq(after.failures, combo.failures + 1)
+	eq(Store.data.history[#Store.data.history].cause, "stringing")
+	-- Retry puts it back in line with the profile.
+	Queue.retry(j)
+	eq(j.status, "QUEUED")
+end)
+
+test("print hours trigger maintenance crossings", function()
+	local p = Store.activePrinter()
+	local t = MaintService.add({ kind = "custom", name = "TEST TASK", intervalHours = 2, intervalDays = 0 })
+	local crossed
+	local fn = Events.on("maint.due", function(e) if e.task == t then crossed = e end end)
+	local j = Queue.add({ name = "LONG ONE", spoolId = "s2", estMinutes = 150, estGrams = 30 })
+	Printing.markComplete(j)
+	Events.off("maint.due", fn)
+	ok(crossed, "maintenance crossing emitted")
+	ok(MaintService.status(t).due, "task due")
+	MaintService.logDone(t, "done")
+	ok(not MaintService.status(t).due, "reset after logging")
+	ok(p.stats.printSeconds > 0)
+end)
+
+test("calibration becomes the recommended profile for queue entries", function()
+	-- ESUN PETG has no profile yet: new jobs get PETG defaults.
+	local j = Queue.add({ name = "CLEAR THING", spoolId = "s5" })
+	eq(j.nozzleTemp, Enums.MATERIAL_INFO.PETG.nozzle)
+	eq(j.profileKey, "")
+	local key = Calibration.key("p1", "PETG", "ESUN")
+	local p, run, touched = CalService.save("temptower", key, { nozzleTemp = 236, bedTemp = 72 }, "", true)
+	ok(run.id, "run stored")
+	ok(touched >= 1, "queued job updated")
+	eq(j.nozzleTemp, 236, "existing queued job re-profiled")
+	eq(j.profileKey, key)
+	eq(Store.spool("s5").favNozzle, 236, "spool favourite updated")
+	local j2 = Queue.add({ name = "ANOTHER", spoolId = "s5" })
+	eq(j2.nozzleTemp, 236)
+	eq(j2.bedTemp, 72)
+	-- Not recommended -> ignored by new jobs.
+	CalService.setRecommended(p, false)
+	local j3 = Queue.add({ name = "THIRD", spoolId = "s5" })
+	eq(j3.nozzleTemp, Enums.MATERIAL_INFO.PETG.nozzle)
+	-- A calibration run silences the Captain's matching suggestion.
+	local before = #U.filter(Stats.suggestions(), function(s) return s.kind == "calib" and s.key == "p1|PETG|OVERTURE" end)
+	ok(before > 0, "PETG/OVERTURE adhesion suggestion exists")
+	CalService.save("firstlayer", "p1|PETG|OVERTURE", { zOffset = -0.02, bedTemp = 80 }, "", true)
+	local sug = U.filter(Stats.suggestions(), function(s) return s.kind == "calib" and s.key == "p1|PETG|OVERTURE" and s.target == "firstlayer" end)
+	eq(#sug, 0, "first-layer suggestion cleared")
+end)
+
+test("every calibration procedure computes sane results", function()
+	for _, proc in ipairs(CalibDefs.list) do
+		local ctx = CalService.context("p1|PLA|BAMBU")
+		local r = {}
+		for _, st in ipairs(proc.steps) do
+			if st.type == "dial" or st.type == "measure" then
+				r[st.field] = st.default and st.default(ctx, r) or st.min
+			elseif st.type == "pick" then
+				local vals = st.values(ctx)
+				ok(#vals > 1, proc.id .. " pick values")
+				r[st.field] = vals[#vals // 2 + 1]
+			end
+		end
+		local out = proc.compute(r, ctx, { all = true })
+		ok(type(out) == "table", proc.id)
+		for k, v in pairs(out) do
+			local known = false
+			for _, f in ipairs(Calibration.FIELDS) do if f[1] == k then known = true end end
+			ok(known, proc.id .. " writes unknown field " .. k)
+			ok(type(v) == "number" or type(v) == "boolean", proc.id .. "." .. k)
+		end
+	end
+	local dim = CalibDefs.byId.dimension.compute({ x = 19.9, y = 19.9, z = 20.1 }, CalService.context("p1|PLA|ANY"))
+	near(dim.xyScale, 100.5, 0.05)
+	near(dim.zScale, 99.5, 0.05)
+	local flow = CalibDefs.byId.flow.compute({ baseFlow = 1.0, pass1 = -5, pass2 = -2 }, CalService.context("p1|PLA|ANY"))
+	near(flow.flowRatio, 0.93, 0.001)
+end)
+
+---------------------------------------------------------------------------
+-- demo provider
+
+local function runDemo(seconds)
+	local steps = math.ceil(seconds / 10)
+	-- Simulated seconds come from frame time x demo speed; the wall clock
+	-- stays put so no sleep gap is added on top.
+	for _ = 1, steps do
+		MOCK.frame(nil, 0, 10000 / Store.settings().demoSpeed)
+	end
+end
+
+test("demo print runs HEATING -> PRINTING -> COMPLETE and logs history", function()
+	boot({})
+	Store.settings().demoChaos = false
+	-- Finish the seeded in-progress print first.
+	runDemo(95 * 60)
+	local snap = Printing.snapshot()
+	eq(snap.state, "COMPLETE")
+	eq(Store.job("j1").status, "COMPLETE", "seeded job completed")
+	local hist = Store.data.history[#Store.data.history]
+	eq(hist.jobId, "j1")
+	Printing.acknowledge()
+	eq(Printing.snapshot().state, "IDLE")
+	-- Start a fresh job.
+	local j = Store.job("j6")                -- BENCHY #48, s9 sealed
+	local s = Store.spool(j.spoolId)
+	local g = s.remainingGrams
+	local okStart, err = Printing.start(j)
+	ok(okStart, err)
+	eq(Printing.snapshot().state, "HEATING")
+	eq(j.status, "PRINTING")
+	runDemo(5 * 60)
+	eq(Printing.snapshot().state, "PRINTING")
+	-- Pause / resume.
+	ok(Printing.pause())
+	eq(j.status, "PAUSED")
+	ok(Printing.resume())
+	eq(j.status, "PRINTING")
+	runDemo(60 * 60)
+	eq(Printing.snapshot().state, "COMPLETE")
+	eq(j.status, "COMPLETE")
+	near(s.remainingGrams, g - j.estGrams, 1e-6)
+	eq(s.dryness, "DRY", "sealed spool opened by use")
+	ok(#Store.data.printLog > 0)
+end)
+
+test("time spent asleep (wall-clock gap) still advances the print", function()
+	boot({})
+	Store.settings().demoChaos = false
+	local st = Printing.provider.st
+	local before = st.elapsedSec
+	MOCK.advance(20)                      -- device slept 20 seconds
+	MOCK.frame(nil, 0, 33)
+	near(st.elapsedSec - before, 20 * Store.settings().demoSpeed, 60, "sleep simulated")
+end)
+
+test("demo print fast-forwards while the app was closed", function()
+	boot({})
+	Store.settings().demoChaos = false
+	App.saveAll()
+	local files = { printshop = MOCK.files.printshop }
+	MOCK.advance(3 * 3600)               -- three real hours away at 60x
+	boot(files)
+	eq(Store.job("j1").status, "COMPLETE", "finished while away")
+	eq(Printing.snapshot().state, "COMPLETE")
+end)
+
+test("runout pauses the print; swapping spools resumes and splits usage", function()
+	boot({})
+	Store.settings().demoChaos = false
+	runDemo(95 * 60)
+	Printing.acknowledge()
+	local j = Queue.add({ name = "BIG PLANTER", spoolId = "s3", estMinutes = 120, estGrams = 200, layers = 150 })
+	j.status = "QUEUED"
+	local low = Store.spool("s3")
+	local lowGrams = low.remainingGrams
+	ok(lowGrams < 200)
+	ok(Printing.start(j))
+	runDemo(130 * 60)
+	local snap = Printing.snapshot()
+	eq(snap.state, "PAUSED")
+	ok(Store.data.runout, "runout flagged")
+	local okR = Printing.resume()
+	ok(not okR, "cannot resume on an empty spool")
+	ok(Printing.swapSpool("s1"))
+	near(low.remainingGrams, 0, 1e-6, "old spool emptied")
+	local s1 = Store.spool("s1")
+	local g1 = s1.remainingGrams
+	ok(Printing.resume())
+	eq(Store.data.runout, nil)
+	runDemo(130 * 60)
+	eq(Printing.snapshot().state, "COMPLETE")
+	near(g1 - s1.remainingGrams, 200 - lowGrams, 0.01, "new spool pays the rest")
+	eq(j.status, "COMPLETE")
+end)
+
+test("demo failures are driven by shop state and are deterministic", function()
+	boot({})
+	runDemo(95 * 60)
+	Printing.acknowledge()
+	Store.settings().demoChaos = true
+	-- A WET TPU spool strings: find an attempt that fails.
+	local j = Store.job("j7")                 -- TPU BUMPERS, FAILED, s6 WET
+	Queue.retry(j)
+	local failedWith = nil
+	for attempt = 1, 12 do
+		ok(Printing.start(j))
+		runDemo(80 * 60)
+		local pf = Store.data.pendingFailure
+		if pf then
+			failedWith = pf.cause
+			local screen = FailureScreen.new()
+			ok(screen.job == j, "failure screen bound to job")
+			Printing.resolvePending({ cause = pf.cause or "unknown", notes = "", grams = pf.grams })
+			break
+		end
+		Printing.acknowledge()
+		Queue.retry(j)
+	end
+	ok(failedWith ~= nil, "a wet TPU spool eventually fails")
+	-- Determinism: same seed, same plan.
+	local a = DemoProvider.new(Store.activePrinter())
+	local b = DemoProvider.new(Store.activePrinter())
+	local spec = { jobId = "jX", name = "X", spoolId = "s6", material = "TPU", grams = 10, minutes = 30, layers = 50, attempt = 3, printerId = "p1" }
+	a:startJob(spec)
+	b:startJob(spec)
+	eq(a.st.failAt, b.st.failAt)
+	eq(a.st.failCause, b.st.failCause)
+end)
+
+test("printer-reported failure goes pending until a cause is logged", function()
+	boot({})
+	local p = Printing.provider
+	local j = Store.job("j1")
+	local s = Store.spool(j.spoolId)
+	local g, fc = s.remainingGrams, s.failCount
+	-- Force a failure on the seeded print.
+	p.st.failAt = p.st.elapsedSec / p.st.totalSec + 0.01
+	p.st.failCause = "spaghetti"
+	p.st.failReason = "SPAGHETTI DETECTED"
+	runDemo(10 * 60)
+	local pf = Store.data.pendingFailure
+	ok(pf, "pending failure")
+	eq(pf.cause, "spaghetti")
+	eq(j.status, "FAILED")
+	eq(s.remainingGrams, g, "no consumption until logged")
+	-- Workshop auto-opened the failure log.
+	eq(topName(), "FailureScreen")
+	local ok2, why = Printing.canStart(Store.job("j6"))
+	ok(not ok2 and why == "LOG LAST FAILURE FIRST")
+	-- Log it through the UI: A opens the menu, A picks "LOG AS ...".
+	press(B.A)
+	eq(topName(), "Menu")
+	press(B.A)
+	eq(Store.data.pendingFailure, nil)
+	ok(s.remainingGrams < g, "filament consumed")
+	eq(s.failCount, fc + 1)
+	eq(Store.data.history[#Store.data.history].cause, "spaghetti")
+	eq(Printing.snapshot().state, "IDLE")
+	-- Close the Captain's reaction.
+	for _ = 1, 4 do press(B.A) end
+end)
+
+test("cancel from the printer can be logged as a plain cancel", function()
+	boot({})
+	local j = Store.job("j1")
+	local fails = Store.activePrinter().stats.failures
+	ok(Printing.cancel())
+	frames(2)
+	ok(Store.data.pendingFailure and Store.data.pendingFailure.cancelled, "pending cancel")
+	Printing.resolvePending({ asCancel = true })
+	eq(Store.data.history[#Store.data.history].outcome, "cancelled")
+	eq(Store.activePrinter().stats.failures, fails, "cancel is not a failure")
+	eq(j.status, "QUEUED", "cancelled job returns to the queue")
+	Screens.popToRoot()
+end)
+
+---------------------------------------------------------------------------
+-- bridge + bambu adapters
+
+test("bambu report maps onto the provider interface", function()
+	local report = { print = {
+		gcode_state = "RUNNING", mc_percent = 40, mc_remaining_time = 30, layer_num = 48, total_layer_num = 120,
+		nozzle_temper = 219.5, nozzle_target_temper = 220, bed_temper = 59.8, bed_target_temper = 60,
+		subtask_name = "cable_clip_v3.gcode.3mf", print_error = 0,
+		ams = { tray_now = "1", ams = { { id = "0", tray = {
+			{ id = "0", tray_type = "PLA", tray_color = "000000FF", remain = 61 },
+			{ id = "1", tray_type = "PETG-CF", tray_color = "FFFFFFFF", remain = 80 },
+		} } } },
+	} }
+	local doc = BambuProvider.mapReport(report)
+	eq(doc.state, "PRINTING")
+	eq(doc.progress.layer, 48)
+	eq(doc.progress.remainingSec, 1800)
+	eq(doc.progress.elapsedSec, 1200)
+	eq(doc.job.name, "cable_clip_v3")
+	eq(doc.spools.active, 2)
+	eq(doc.spools.slots[2].material, "PETG")
+	eq(BambuProvider.mapReport({ gcode_state = "FINISH" }).state, "COMPLETE")
+	eq(BambuProvider.mapReport({ gcode_state = "FAILED", print_error = 50348044 }).message, "ERROR 0300400C")
+	local cmd = BambuProvider.buildCommand("pause")
+	eq(cmd.print.command, "pause")
+end)
+
+test("bridge provider derives complete/failed events from state changes", function()
+	boot({})
+	local printer = Store.activePrinter()
+	local p = LocalBridgeProvider.new(printer)
+	local function doc(state, pct)
+		return { state = state, temps = { nozzle = 220, nozzleTarget = 220, bed = 60, bedTarget = 60 },
+			progress = { pct = pct, layer = 10, totalLayers = 100, elapsedSec = 600, remainingSec = 60 },
+			job = { name = "Cable Clips x12", material = "PLA", grams = 18 } }
+	end
+	p:ingest(doc("PRINTING", 50))
+	p:ingest(doc("PRINTING", 90))
+	p:ingest(doc("COMPLETE", 100))
+	local evs = p:pollEvents()
+	local types = {}
+	for _, e in ipairs(evs) do types[#types + 1] = e.type end
+	ok(U.indexOf(types, "complete"), "complete derived: " .. table.concat(types, ","))
+	-- Without a host (or network) it reports OFFLINE with a reason.
+	printer.host = ""
+	local q = LocalBridgeProvider.new(printer)
+	q:update(5000)
+	eq(q:getStatus().state, "OFFLINE")
+	ok(string.find(q:getStatus().message, "HOST"), q:getStatus().message)
+	-- Switching the active printer to the bridge keeps the app usable.
+	printer.provider = "bridge"
+	Printing.reload()
+	frames(5)
+	eq(Printing.snapshot().state, "OFFLINE")
+	printer.provider = "demo"
+	Printing.reload()
+end)
+
+test("bridge provider talks to the real Python bridge (end to end)", function()
+	if os.execute("command -v curl >/dev/null && command -v python3 >/dev/null") ~= true then
+		print("\n  (skipped: needs curl + python3)")
+		return
+	end
+	local port = 18787
+	os.execute("cd bridge && (python3 printshop_bridge.py --demo --speed 2000 --bind 127.0.0.1 --port " .. port ..
+		" >/dev/null 2>&1 & echo $! > /tmp/printshop_bridge.pid)")
+	os.execute("for i in 1 2 3 4 5 6 7 8 9 10; do curl -s localhost:" .. port .. "/api/v1/status >/dev/null && break; sleep 0.3; done")
+	-- A fake connection with the documented http API, backed by curl.
+	local realNew = playdate.network.http.new
+	rawset(playdate.network.http, "new", function(host, p)
+		local conn, m = MOCK.object("playdate.network.http", {})
+		local body, status, cbs = "", nil, {}
+		m.setRequestCallback = function(_, f) cbs.req = f end
+		m.setRequestCompleteCallback = function(_, f) cbs.done = f end
+		m.setConnectionClosedCallback = function(_, f) cbs.closed = f end
+		m.setConnectTimeout = function() end
+		m.getBytesAvailable = function() return #body end
+		m.read = function(_, n) local out = body:sub(1, n) body = body:sub(n + 1) return out end
+		m.getResponseStatus = function() return status end
+		m.getError = function() return nil end
+		m.close = function() end
+		local function run(cmd)
+			local f = io.popen(cmd)
+			local out = f:read("a")
+			f:close()
+			status = tonumber(out:match("(%d%d%d)$"))
+			body = out:gsub("%d%d%d$", "")
+			-- Deliver asynchronously on the next frame, like the device.
+			MOCK.pending = function() cbs.req() cbs.done() end
+			return true
+		end
+		m.get = function(_, path) return run(string.format("curl -s -w '%%{http_code}' http://%s:%d%s", host, p, path)) end
+		m.post = function(_, path, headers, data)
+			return run(string.format("curl -s -w '%%{http_code}' -X POST -d '%s' http://%s:%d%s", data or "{}", host, p, path))
+		end
+		return conn
+	end)
+	local ok2, err = pcall(function()
+		boot({})
+		local printer = Store.activePrinter()
+		printer.provider = "bridge"
+		printer.host = "127.0.0.1"
+		printer.port = port
+		Printing.reload()
+		local function pump(n)
+			for _ = 1, n do
+				MOCK.frame(nil, 0, 1000)
+				if MOCK.pending then local f = MOCK.pending MOCK.pending = nil f() end
+			end
+		end
+		pump(6)
+		local snap = Printing.snapshot()
+		ok(snap.online, "bridge online: " .. tostring(snap.message))
+		ok(snap.state == "HEATING" or snap.state == "PRINTING" or snap.state == "COMPLETE", snap.state)
+		local j = U.find(Store.data.jobs, function(x) return x.name == "BRIDGE BENCHY" end)
+		ok(j, "bridge job adopted into the queue")
+		-- Wait for the demo bridge print to finish; the shop logs it.
+		for _ = 1, 40 do
+			pump(2)
+			if j.status == "COMPLETE" then break end
+			os.execute("sleep 0.1")
+		end
+		eq(j.status, "COMPLETE", "completion derived from bridge state")
+		eq(Store.data.history[#Store.data.history].jobName, "BRIDGE BENCHY")
+		printer.provider = "demo"
+		Printing.reload()
+	end)
+	rawset(playdate.network.http, "new", realNew)
+	os.execute("kill $(cat /tmp/printshop_bridge.pid) 2>/dev/null")
+	if not ok2 then error(err, 0) end
+end)
+
+test("jobs started on a live printer are adopted into the queue", function()
+	boot({})
+	local printer = Store.activePrinter()
+	printer.provider = "bridge"
+	Printing.reload()
+	local p = Printing.provider
+	p:ingest({ state = "PRINTING", temps = {}, progress = { pct = 5, layer = 1, totalLayers = 50 },
+		job = { name = "Mystery Part", material = "PETG", grams = 30 } })
+	Printing.drain()
+	local j = U.find(Store.data.jobs, function(x) return x.name == "MYSTERY PART" end)
+	ok(j, "adopted")
+	eq(j.status, "PRINTING")
+	eq(j.source, "printer")
+	p:ingest({ state = "COMPLETE", temps = {}, progress = { pct = 100, layer = 50, totalLayers = 50 },
+		job = { name = "Mystery Part", material = "PETG", grams = 30 } })
+	Printing.drain()
+	eq(j.status, "COMPLETE")
+	printer.provider = "demo"
+	Printing.reload()
+end)
+
+---------------------------------------------------------------------------
+-- Benchy Captain
+
+test("captain lines are deterministic, varied and slot-complete", function()
+	boot({})
+	local seen = {}
+	local n = 0
+	for i = 1, 60 do
+		local line = Captain.advice()
+		ok(type(line.text) == "string" and #line.text > 10, "text")
+		ok(not string.find(line.text, "{%w+}"), "unfilled slot in: " .. line.text)
+		if not seen[line.text] then n = n + 1 seen[line.text] = true end
+	end
+	ok(n >= 25, "variety: " .. n)
+	-- Same state + counter -> same line.
+	local c = Store.data.captain.counter
+	local a = Captain.compose("wisdom", {}, "neutral", Rng.new(99))
+	local b = Captain.compose("wisdom", {}, "neutral", Rng.new(99))
+	eq(a, b)
+	-- Combination count is in the thousands.
+	local bodies = 0
+	for _, bank in pairs(Phrases.topics) do bodies = bodies + #bank end
+	ok(bodies * #Phrases.openers * #Phrases.closers > 10000, "combinations")
+	-- Every topic bank renders without leftover slots given the vars the rules supply.
+	for _, cand in ipairs(Captain.candidates()) do
+		for i = 1, 8 do
+			local line = Captain.compose(cand.topic, cand.vars, cand.mood, Rng.new(i))
+			ok(not string.find(line, "{%w+}"), cand.topic .. ": " .. line)
+		end
+	end
+	ok(Store.data.captain.counter > c - 1)
+end)
+
+test("captain reacts to failures with cause-specific advice", function()
+	boot({})
+	Store.data.captain.inbox = {}
+	local j = Store.job("j2")
+	Printing.markFailed(j, "layershift", "", 5, 0.2)
+	ok(Captain.hasNews())
+	local news = Captain.nextNews()
+	eq(news.topic, "fail_layershift")
+	eq(news.mood, "worried")
+	local mentions = 0
+	for i = 1, 20 do
+		local line = Captain.compose("fail_layershift", { job = j.name, layer = 3 }, "worried", Rng.new(i))
+		if string.find(line, j.name, 1, true) then mentions = mentions + 1 end
+	end
+	ok(mentions > 0, "some layer-shift lines name the job")
+	-- The combo report reads like the spec example.
+	local rep = Captain.comboReport("PETG", "OVERTURE")
+	ok(string.find(rep, "12 prints", 1, true) and string.find(rep, "3 failures", 1, true), rep)
+	ok(string.find(rep, "adhesion", 1, true), rep)
+end)
+
+---------------------------------------------------------------------------
+-- UI
+
+test("first launch: the Captain gives the tour", function()
+	boot({}, true)
+	frames(25)
+	eq(topName(), "Dialog")
+	ok(Store.data.captain.seenIntro)
+	local presses = 0
+	while topName() ~= "HomeScreen" and presses < 20 do
+		press(B.A)
+		frames(3)
+		presses = presses + 1
+	end
+	eq(topName(), "HomeScreen")
+	ok(presses >= 4, "multi-page tour (" .. presses .. " presses)")
+	-- Not repeated on the next launch.
+	App.saveAll()
+	boot({ printshop = MOCK.files.printshop }, true)
+	frames(25)
+	eq(topName(), "HomeScreen")
+end)
+
+test("navigate every station, open its menu, and come back", function()
+	boot({})
+	for i, st in ipairs(HomeScreen.STATIONS) do
+		Screens.popToRoot()
+		local home = Screens.top()
+		home.sel = i
+		press(B.A)
+		ok(Screens.depth() >= 2, "opened " .. st.id)
+		frames(10)
+		-- Scroll around, open the A menu if any, cancel out.
+		press(B.DOWN, 2)
+		crank(30, 4)
+		press(B.RIGHT)
+		press(B.LEFT)
+		press(B.A)
+		frames(3)
+		press(B.B)
+		frames(2)
+		Screens.popToRoot()
+		eq(topName(), "HomeScreen")
+	end
+end)
+
+test("queue: crank reorder moves the job and persists the order", function()
+	boot({})
+	Screens.push(QueueScreen.new())
+	local q = Screens.top()
+	q.list:select(3)                           -- second job
+	local j = q:selectedJob()
+	local _, before = U.findById(Store.data.jobs, j.id)
+	q:startMove(j)
+	crank(45)                                  -- one detent down
+	frames(1)
+	press(B.A)                                 -- drop
+	local _, after = U.findById(Store.data.jobs, j.id)
+	eq(after, before + 1, "moved down one slot")
+	crank(-45, 1)
+	eq(select(2, U.findById(Store.data.jobs, j.id)), after, "crank ignored when not moving")
+	App.saveAll()
+	boot({ printshop = MOCK.files.printshop })
+	eq(select(2, U.findById(Store.data.jobs, j.id)), after, "order persisted")
+end)
+
+test("queue: add a job through the editor with the keyboard", function()
+	boot({})
+	Screens.push(QueueScreen.new())
+	local count = #Store.data.jobs
+	press(B.A)                                -- "+ NEW JOB"
+	eq(topName(), "JobEditScreen")
+	press(B.A)                                -- NAME -> keyboard
+	ok(MOCK.keyboardVisible, "keyboard shown")
+	playdate.keyboard.text = "Desk Hook"
+	MOCK.keyboardVisible = false
+	playdate.keyboard.keyboardWillHideCallback(true)
+	frames(4)
+	local ed = Screens.top()
+	eq(ed.draft.name, "DESK HOOK")
+	-- Jump to SAVE and press it.
+	ed.form.list:select(#ed.form.fields)
+	press(B.A)
+	eq(#Store.data.jobs, count + 1)
+	local j = Store.data.jobs[#Store.data.jobs]
+	eq(j.name, "DESK HOOK")
+	ok(j.nozzleTemp > 0, "profile applied")
+end)
+
+test("dial: crank adjusts the value in detents", function()
+	boot({})
+	local got
+	Dial.open({ title = "NOZZLE", label = "NOZZLE TEMP", value = 215, min = 190, max = 240, step = 1, unit = "C",
+		onAccept = function(v) got = v end })
+	crank(12, 5)                 -- 5 detents
+	press(B.UP)                  -- x10
+	press(B.A)
+	eq(got, 230)
+end)
+
+test("rolodex: flip, filter, weigh-in", function()
+	boot({})
+	Screens.push(RolodexScreen.new())
+	local r = Screens.top()
+	local first = r:current()
+	crank(50)
+	frames(5)
+	ok(r:current() ~= first, "flipped")
+	press(B.RIGHT)                -- PLA filter
+	for _, s in ipairs(r.spools) do eq(s.material, "PLA") end
+	local s = r:current()
+	local ledger = #Store.data.consumption
+	Filament.setRemaining(s, s.remainingGrams - 50, "test")
+	eq(#Store.data.consumption, ledger + 1)
+	-- LOW filter only shows low spools.
+	r.filter = U.indexOf(Filament.FILTERS, "LOW")
+	r:refresh()
+	for _, sp in ipairs(r.spools) do ok(Spool.isLow(sp, 150)) end
+	frames(3)
+end)
+
+test("calibration wizard end to end with the crank", function()
+	boot({})
+	local key = "p1|PLA|POLYMAKER"
+	Screens.push(CalibRunScreen.new(CalibDefs.byId.temptower, key))
+	local w = Screens.top()
+	press(B.A)                                 -- finish typing
+	press(B.A)                                 -- next
+	eq(w:def().type, "pick")
+	crank(30, 2)                               -- two floors cooler
+	press(B.A)
+	eq(w:def().type, "dial")
+	crank(12, 3)                               -- +3C fine tune
+	press(B.A)
+	press(B.A)                                 -- bed temp as is
+	eq(w:def().type, "summary")
+	press(B.A)                                 -- save menu
+	press(B.A)                                 -- SAVE + RECOMMEND
+	local p = CalService.profile(key)
+	ok(p, "profile saved")
+	ok(p.nozzleTemp > 0 and p.recommended, "values")
+	eq(CalService.lastRun("temptower", key).key, key)
+end)
+
+test("maintenance: log done via the UI resets the task", function()
+	boot({})
+	Screens.push(MaintScreen.new())
+	local m = Screens.top()
+	local e = m.rows[1]
+	ok(e.st.soon, "most urgent first")
+	press(B.A)                                 -- actions
+	press(B.A)                                 -- LOG AS DONE
+	press(B.A)                                 -- DONE, NO NOTE
+	ok(not MaintService.status(e.task).soon, "reset")
+	eq(MaintService.logFor(e.task.id, 1)[1].taskId, e.task.id)
+end)
+
+test("project history: detail screen lists jobs and attempts", function()
+	boot({})
+	local name = "GARDEN"
+	Screens.push(ProjectScreen.new(name))
+	local p = Screens.top()
+	ok(#p.rows > 5, "rows")
+	ok(p.agg and p.agg.prints > 5, "aggregate")
+	-- Completing a GARDEN job updates the project.
+	local before = p.agg.successes
+	Printing.markComplete(Store.job("j4"))
+	p:refresh()
+	eq(p.agg.successes, before + 1)
+	p.list:select(#p.rows)                   -- an attempt row
+	press(B.A)
+	eq(topName(), "Dialog")
+	press(B.B)                                 -- finish typing
+	press(B.B)                                 -- close
+	eq(topName(), "ProjectScreen")
+	press(B.B)
+	eq(topName(), "HomeScreen")
+end)
+
+test("edge: pending failure and runout survive a restart", function()
+	boot({})
+	Store.settings().demoChaos = false
+	local p = Printing.provider
+	p.st.failAt = p.st.elapsedSec / p.st.totalSec + 0.01
+	p.st.failCause = "clog"
+	p.st.failReason = "CLOG"
+	Screens.push(StatsScreen.new())     -- not auto-opening the failure log here
+	for _ = 1, 20 do MOCK.advance(10) MOCK.frame(nil, 0, 200) end
+	ok(Store.data.pendingFailure, "pending")
+	App.saveAll()
+	boot({ printshop = MOCK.files.printshop })
+	ok(Store.data.pendingFailure, "pending after restart")
+	eq(Printing.snapshot().state, "ERROR", "printer still shows the error")
+	Screens.push(FailureScreen.new())
+	eq(Screens.top().cause, "clog", "suggested cause preselected")
+	Printing.resolvePending({ cause = "clog" })
+	eq(Store.data.pendingFailure, nil)
+	Screens.popToRoot()
+end)
+
+test("edge: each printer keeps its own provider state", function()
+	boot({})
+	local p1 = Store.activePrinter()
+	local elapsed = Printing.provider.st.elapsedSec
+	-- Make the second printer a demo too, switch to it and back.
+	local p2 = Store.printer("p2")
+	p2.provider = "demo"
+	Printing.switchPrinter("p2")
+	eq(Store.activePrinter().id, "p2")
+	eq(Printing.snapshot().state, "IDLE", "p2 idle")
+	-- The seeded job belongs to p1; queue next for p2 is empty.
+	eq(Queue.nextFor("p2"), nil)
+	Printing.switchPrinter("p1")
+	eq(Printing.snapshot().state, "PRINTING", "p1 print resumed")
+	ok(Printing.provider.st.elapsedSec >= elapsed, "progress kept")
+	eq(Store.activePrinter(), p1)
+end)
+
+test("edge: deleting a spool clears references; jobs survive", function()
+	boot({})
+	local s = Store.spool("s2")
+	local users = U.filter(Store.data.jobs, function(j) return j.spoolId == "s2" end)
+	ok(#users > 0)
+	Screens.push(SpoolEditScreen.new(s))
+	Screens.top():delete()
+	press(B.UP)                                -- confirm defaults to NO
+	press(B.A)                                 -- YES
+	eq(Store.spool("s2"), nil)
+	for _, j in ipairs(users) do eq(j.spoolId, nil) end
+	-- History rows still point at the old id and screens cope with it.
+	Screens.popToRoot()
+	Screens.push(StatsScreen.new())
+	for _ = 1, 5 do press(B.RIGHT) end
+	App.saveAll()
+	boot({ printshop = MOCK.files.printshop })
+	eq(Store.spool("s2"), nil)
+end)
+
+test("edge: garbage provider state is ignored safely", function()
+	boot({})
+	local doc = json.decode(MOCK.files.printshop)
+	doc.providerState = { ["p1:demo"] = { state = "PRINTING", totalSec = "x", elapsedSec = -5 }, junk = 7 }
+	doc.printLog = { { at = "yesterday", text = 5 } }
+	boot({ printshop = json.encode(doc) })
+	frames(10)
+	local st = Printing.snapshot().state
+	ok(st == "IDLE" or st == "PRINTING", st)
+	Screens.push(WatchScreen.new())
+	frames(5)
+	Screens.popToRoot()
+end)
+
+test("system menu items exist and work", function()
+	boot({})
+	local names = {}
+	for _, it in ipairs(MOCK.menuItems) do names[#names + 1] = it.title end
+	ok(#MOCK.menuItems <= 3, "at most three custom items")
+	Screens.push(QueueScreen.new())
+	for _, it in ipairs(MOCK.menuItems) do
+		if it.title == "captain" then it.cb() end
+	end
+	eq(topName(), "CaptainScreen")
+	for _, it in ipairs(MOCK.menuItems) do
+		if it.title == "demo spd" then it.cb("600x") it.cb("300x") end
+	end
+	eq(Store.settings().demoSpeed, 300)
+end)
+
+test("fuzz: random input across screens never crashes", function()
+	boot({})
+	local rng = Rng.new(2024)
+	local buttons = { B.A, B.B, B.UP, B.DOWN, B.LEFT, B.RIGHT }
+	for i = 1, 4000 do
+		local r = rng:next()
+		if MOCK.keyboardVisible then
+			playdate.keyboard.text = "FUZZ " .. i
+			MOCK.keyboardVisible = false
+			playdate.keyboard.keyboardWillHideCallback(rng:chance(0.7))
+			frames(1)
+		elseif r < 0.55 then
+			-- Bias away from B so we get deep into screens.
+			local b = rng:pick(buttons)
+			if b == B.B and rng:chance(0.5) then b = B.A end
+			press(b)
+		elseif r < 0.8 then
+			crank(rng:int(-60, 60))
+		else
+			MOCK.advance(rng:int(1, 600))
+			frames(1, rng:int(10, 300))
+		end
+		if Screens.depth() > 12 then Screens.popToRoot() end
+	end
+	ok(Screens.depth() >= 1)
+	App.saveAll()
+	boot({ printshop = MOCK.files.printshop })
+	ok(not Store.loadReport.seeded, "fuzzed data reloads")
+end)
+
+---------------------------------------------------------------------------
+-- regressions from the code review
+
+test("review: long printer job names are adopted once, not every frame", function()
+	boot({})
+	local printer = Store.activePrinter()
+	printer.provider = "bridge"
+	Printing.reload()
+	local long = "A VERY LONG SLICER FILE NAME FOR A PLANTER V12 FINAL"
+	local before = #Store.data.jobs
+	for _ = 1, 5 do
+		Printing.provider:ingest({ state = "PRINTING", temps = {}, progress = { pct = 5, layer = 1, totalLayers = 50 },
+			job = { name = long, material = "PLA" } })
+		Printing.drain()
+	end
+	eq(#Store.data.jobs, before + 1)
+	printer.provider = "demo"
+	Printing.reload()
+end)
+
+test("review: editors merge only user edits over live records", function()
+	boot({})
+	Store.settings().demoChaos = false
+	local j = Store.job("j1")
+	Screens.push(JobEditScreen.new(j))
+	local ed = Screens.top()
+	ed.draft.notes = "EDITED WHILE PRINTING"
+	runDemo(95 * 60)                           -- print finishes meanwhile
+	eq(j.status, "COMPLETE")
+	ed:save()
+	eq(j.status, "COMPLETE", "status not rolled back")
+	eq(j.notes, "EDITED WHILE PRINTING")
+	local s = Store.spool("s2")
+	Screens.push(SpoolEditScreen.new(s))
+	local se = Screens.top()
+	se.draft.location = "DRAWER"
+	Filament.consume("s2", 40, "print", nil, "meanwhile")
+	local left = s.remainingGrams
+	se:save()
+	eq(s.remainingGrams, left, "grams not rolled back")
+	eq(s.location, "DRAWER")
+	Screens.popToRoot()
+end)
+
+test("review: a pending failure can't be double counted", function()
+	boot({})
+	local j = Store.job("j1")
+	local p = Printing.provider
+	p.st.failAt = p.st.elapsedSec / p.st.totalSec + 0.01
+	p.st.failCause = "clog"
+	Screens.push(StatsScreen.new())
+	runDemo(10 * 60)
+	ok(Store.data.pendingFailure)
+	local hist = #Store.data.history
+	Printing.markFailed(j, "clog", "", 5, 0.5)
+	eq(Store.data.pendingFailure, nil, "manual log settles the pending failure")
+	eq(#Store.data.history, hist + 1)
+	eq(Printing.snapshot().state, "IDLE")
+	Screens.popToRoot()
+end)
+
+test("review: bridge completion while the app was closed is not lost", function()
+	boot({})
+	local printer = Store.activePrinter()
+	printer.provider = "bridge"
+	Printing.reload()
+	local p = Printing.provider
+	local doc = function(state) return { state = state, temps = {}, progress = { pct = state == "COMPLETE" and 100 or 50,
+		layer = 10, totalLayers = 20 }, job = { name = "Bridge Thing", material = "PLA", grams = 9 } } end
+	p:ingest(doc("PRINTING"))
+	Printing.drain()
+	local j = U.find(Store.data.jobs, function(x) return x.name == "BRIDGE THING" end)
+	eq(j.status, "PRINTING")
+	App.saveAll()
+	boot({ printshop = MOCK.files.printshop })
+	eq(Store.activePrinter().provider, "bridge")
+	Printing.provider:ingest(doc("COMPLETE"))
+	Printing.drain()
+	j = Store.job(j.id)
+	eq(j.status, "COMPLETE", "completion derived after restart")
+	-- Cleared on the printer without us seeing the end: job returns to the queue.
+	local k = Queue.add({ name = "OTHER THING", status = "QUEUED" })
+	Printing.provider:ingest({ state = "PRINTING", temps = {}, progress = { pct = 5 }, job = { name = "OTHER THING" } })
+	Printing.drain()
+	eq(k.status, "PRINTING")
+	Printing.provider:ingest({ state = "IDLE", temps = {}, progress = {} })
+	Printing.drain()
+	eq(k.status, "QUEUED")
+	Store.activePrinter().provider = "demo"
+	Printing.reload()
+end)
+
+test("review: an orphaned ERROR plate is cleared on switch-back", function()
+	boot({})
+	Store.printer("p2").provider = "demo"
+	ok(Printing.cancel())
+	ok(Store.data.pendingFailure)
+	Printing.switchPrinter("p2")
+	Printing.resolvePending({ asCancel = true })
+	Printing.switchPrinter("p1")
+	eq(Printing.snapshot().state, "IDLE", "not stuck in ERROR")
+	ok(Printing.canStart(Store.job("j6")))
+end)
+
+test("review: SAVE ONLY does not recommend; non-temp runs keep job temps", function()
+	boot({})
+	local key = "p1|PETG|ESUN"
+	local p = CalService.save("temptower", key, { nozzleTemp = 231 }, "", nil)
+	eq(p.recommended, false)
+	local j = Queue.add({ name = "X", spoolId = "s5" })
+	eq(j.nozzleTemp, Enums.MATERIAL_INFO.PETG.nozzle, "not applied")
+	-- Manual temps survive a recommended temperature calibration.
+	local m = Queue.add({ name = "MANUAL", spoolId = "s4" })
+	m.nozzleTemp, m.manualTemps, m.profileKey = 251, true, ""
+	local a = Queue.add({ name = "AUTO", spoolId = "s4" })
+	local _, _, touched = CalService.save("temptower", "p1|PETG|OVERTURE", { nozzleTemp = 238 }, "", true)
+	eq(m.nozzleTemp, 251)
+	eq(a.nozzleTemp, 238)
+	ok(touched >= 1)
+	-- A flow run doesn't touch temps at all.
+	local _, _, t2 = CalService.save("flow", "p1|PETG|OVERTURE", { flowRatio = 0.96 }, "", true)
+	eq(t2, 0)
+	-- Zero is a real value for non-temperature fields.
+	local zp = CalService.save("firstlayer", "p1|PLA|BAMBU", { zOffset = 0 }, "", true)
+	eq(Calibration.fmtField(zp, Calibration.FIELDS[9]), "0.00mm")
+end)
+
+test("review: captain news never shows raw slots", function()
+	boot({})
+	Store.data.captain.inbox = {}
+	Filament.consume("s10", 400, "manual", nil, "big")
+	local j = Queue.add({ name = "NO SPOOL JOB" })
+	Printing.markComplete(j)
+	Printing.markFailed(Queue.add({ name = "NO SPOOL FAIL" }), "stringing", "", 1, 0.1)
+	for _ = 1, 10 do
+		local n = Captain.nextNews()
+		if n == nil then break end
+		ok(not string.find(n.text, "[{}]"), n.text)
+		ok(not string.find(n.text, "  "), "double space: " .. n.text)
+	end
+end)
+
+test("review: migration and list repair edge cases", function()
+	local d = Schema.migrations[4]({ maintenance = { log = { { id = "l1" } } } })
+	eq(#d.maintenance.tasks, 0, "no invented task")
+	local list = {}
+	for i = 1, 12 do list[tostring(i)] = { id = "x" .. i } end
+	local out = U.asList(list)
+	for i = 1, 12 do eq(out[i].id, "x" .. i) end
+	local q = { { id = "a" }, { id = "b" }, { id = "c" } }
+	Store.data.jobs = q
+	eq(Queue.move(q[1], 1), 2)
+	eq(Store.data.jobs[2].id, "a")
+end)
+
+test("review2: v4 saves drop legacy zero calibration fields, infer manual temps", function()
+	boot({})
+	local doc = json.decode(MOCK.files.printshop)
+	doc.schema = 4
+	local p = doc.calibrations["p1|PLA|ANY"]
+	p.xyScale, p.zScale, p.zOffset, p.flowRatio = 0, 0, 0, 0
+	doc.calibRuns[#doc.calibRuns + 1] = { id = "r99", procedure = "firstlayer", key = "p1|PLA|ANY", at = 1, results = { zOffset = 0 } }
+	local j = doc.jobs[4]
+	j.manualTemps = nil
+	j.profileKey = ""
+	j.nozzleTemp = 251
+	boot({ printshop = json.encode(doc) })
+	eq(Store.loadReport.migratedFrom, 4)
+	local q = CalService.profile("p1|PLA|ANY")
+	eq(q.xyScale, nil)
+	eq(q.flowRatio, nil)
+	eq(q.zOffset, 0, "measured zero kept")
+	eq(Store.job(j.id).manualTemps, true)
+	local dim = CalibDefs.byId.dimension.compute({ x = 20, y = 20, z = 20 }, CalService.context("p1|PLA|ANY"))
+	eq(dim.xyScale, 100)
+end)
+
+test("review2: a job printing on another printer can't be logged twice", function()
+	boot({})
+	Store.settings().demoChaos = false
+	local j = Store.job("j1")
+	Store.printer("p2").provider = "demo"
+	Printing.switchPrinter("p2")
+	ok(Printing.isBusy(j), "still busy while on p1")
+	local hist = #Store.data.history
+	MOCK.advance(3 * 3600)
+	Printing.switchPrinter("p1")               -- fast-forward completes it
+	eq(j.status, "COMPLETE")
+	eq(#Store.data.history, hist + 1)
+	-- A duplicate completion event is ignored.
+	Printing.handle({ type = "complete", jobId = j.id, grams = 18 })
+	eq(#Store.data.history, hist + 1)
+end)
+
+test("review2: bridge name matches stay on the active printer; offline gaps keep state", function()
+	boot({})
+	local other = Queue.add({ name = "CLIP", printerId = "p2", status = "QUEUED" })
+	local printer = Store.activePrinter()
+	printer.provider = "bridge"
+	printer.host = "10.0.0.2"
+	Printing.reload()
+	local p = Printing.provider
+	local function doc(state, pct) return { state = state, temps = {}, progress = { pct = pct or 10 }, job = { name = "CLIP" } } end
+	p:ingest(doc("PRINTING"))
+	Printing.drain()
+	eq(other.status, "QUEUED", "p2's CLIP untouched")
+	local mine = U.find(Store.data.jobs, function(x) return x.name == "CLIP" and x.printerId == printer.id end)
+	ok(mine and mine.status == "PRINTING", "adopted for p1")
+	p:ingest({ state = "OFFLINE" })
+	p:ingest(doc("COMPLETE", 100))
+	Printing.drain()
+	eq(mine.status, "COMPLETE", "completion survives an OFFLINE blip")
+	-- Malformed documents don't crash.
+	for _, bad in ipairs({ { temps = 5 }, { events = { 3 } }, { spools = { slots = { 7 } } }, { progress = "x" } }) do
+		local good = pcall(p.ingest, p, bad)
+		ok(good, "ingest survives bad doc")
+	end
+	-- An empty Bambu report is unknown, not idle.
+	eq(BambuProvider.mapReport({}).state, "OFFLINE")
+	printer.provider = "demo"
+	Printing.reload()
+end)
+
+test("review2: switching connection mid-print reconciles once the bridge reports", function()
+	boot({})
+	local j = Store.job("j1")
+	local printer = Store.activePrinter()
+	printer.provider = "bridge"
+	printer.host = "10.0.0.2"
+	Printing.reload()
+	eq(j.status, "PRINTING", "unknown while offline")
+	Printing.provider:ingest({ state = "IDLE", temps = {}, progress = {} })
+	Printing.drain()
+	eq(j.status, "QUEUED", "returned to queue once the bridge says idle")
+	printer.provider = "demo"
+	Printing.reload()
+end)
+
+test("review2: a second failure settles the first; retry keeps manual temps", function()
+	boot({})
+	local a = Store.job("j1")
+	Printing.handle({ type = "failed", jobId = a.id, reason = "X", cause = "clog", progress = 0.5 })
+	local b = Queue.add({ name = "B", status = "PRINTING", spoolId = "s2" })
+	local hist = #Store.data.history
+	Printing.handle({ type = "failed", jobId = b.id, reason = "Y", cause = "spaghetti", progress = 0.2 })
+	eq(#Store.data.history, hist + 1, "first failure recorded")
+	eq(Store.data.history[#Store.data.history].jobId, a.id)
+	eq(Store.data.pendingFailure.jobId, b.id)
+	Printing.resolvePending({ cause = "spaghetti" })
+	b.nozzleTemp, b.bedTemp, b.manualTemps = 251, 81, true
+	Queue.retry(b)
+	eq(b.nozzleTemp, 251)
+	eq(b.manualTemps, true)
+	-- SAVE ONLY on an existing recommended profile pushes nothing.
+	local q = Queue.add({ name = "Q", spoolId = "s1" })
+	local before = q.nozzleTemp
+	local _, _, touched = CalService.save("temptower", "p1|PLA|BAMBU", { nozzleTemp = 205 }, "", nil)
+	eq(touched, 0)
+	eq(q.nozzleTemp, before)
+end)
+
+test("perf: live print state goes to a side file, not the whole shop", function()
+	boot({})
+	Store.settings().demoSpeed = 1
+	App.saveAll()
+	local mainBefore = MOCK.files.printshop
+	eq(MOCK.files["printshop-live"], nil, "no live file yet")
+	eq(Printing.snapshot().state, "PRINTING")
+	frames(130, 250)                      -- ~32s of play: one persist tick
+	ok(MOCK.files["printshop-live"] ~= nil, "live state written")
+	eq(MOCK.files.printshop, mainBefore, "main document not rewritten by the timer")
+	-- On load, the newer copy of the provider state wins.
+	Store.data.meta.savedAt = 100
+	MOCK.files["printshop-live"] = json.encode({ savedAt = 200, providerState = { x = { a = 1 } } })
+	Store.loadLive()
+	eq(Store.data.providerState.x.a, 1, "newer live state wins")
+	MOCK.files["printshop-live"] = json.encode({ savedAt = 50, providerState = { y = { a = 2 } } })
+	Store.loadLive()
+	eq(Store.data.providerState.y, nil, "older live state ignored")
+	MOCK.files["printshop-live"] = "{broken"
+	Store.loadLive()                      -- garbage is ignored, not fatal
+	-- A reset drops the side file too.
+	Store.saveLive()
+	App.resetData(true)
+	eq(MOCK.files["printshop-live"], nil, "reset deletes the live file")
+	-- Read-only (newer-version) saves never write the side file.
+	Store.readOnly = true
+	MOCK.files["printshop-live"] = nil
+	eq(Store.saveLive(), false)
+	eq(MOCK.files["printshop-live"], nil)
+	Store.readOnly = false
+end)
+
+test("perf: text cache keeps the previous generation; snapshot is cached per frame", function()
+	boot({})
+	local max = Text.CACHE_MAX
+	Text.CACHE_MAX = 2
+	Text.cache, Text.oldCache, Text.cacheCount = {}, {}, 0
+	local a = Text.image("AAA")
+	Text.image("BBB")
+	Text.image("CCC")                     -- rolls the young cache over
+	eq(Text.image("AAA"), a, "still-visible string is not re-rendered")
+	Text.CACHE_MAX = max
+	-- Snapshot: same table within a frame, fresh after a command.
+	local s1 = Printing.snapshot()
+	eq(Printing.snapshot(), s1, "cached within the frame")
+	eq(s1.state, "PRINTING")
+	Printing.pause()
+	eq(Printing.snapshot().state, "PAUSED", "command invalidates the cache")
+	frames(1)
+	ok(Printing.snapshot() ~= s1, "next frame rebuilds")
+	-- No events: pollEvents hands back the shared empty list, which is read-only.
+	local e1 = Printing.provider:pollEvents()
+	eq(#e1, 0)
+	ok(not pcall(function() e1[1] = true end), "empty event list is read-only")
+end)
+
+local function formField(ed, label)
+	for _, f in ipairs(ed.form.allFields) do if f.label == label then return f end end
+	error("no field " .. label)
+end
+
+test("review3: spool editor never invents or loses filament; OK dryness sticks", function()
+	boot({})
+	local s = Store.spool("s1")
+	s.nominalGrams = 1000
+	Filament.setRemaining(s, 612, "setup")
+	-- Nominal dips below the remaining weight and comes back: no free grams.
+	Screens.push(SpoolEditScreen.new(s))
+	local ed = Screens.top()
+	formField(ed, "NOMINAL").set(600)
+	formField(ed, "NOMINAL").set(1000)
+	ed:save()
+	near(s.remainingGrams, 612, 0.5, "no filament invented")
+	-- Lowering nominal below what's left goes through the ledger.
+	local rows, used = #Store.data.consumption, s.usedGrams
+	Screens.push(SpoolEditScreen.new(s))
+	ed = Screens.top()
+	formField(ed, "NOMINAL").set(250)
+	ed:save()
+	near(s.remainingGrams, 250, 0.5)
+	eq(#Store.data.consumption, rows + 1, "clamp logged")
+	near(s.usedGrams, used + 362, 0.5, "grams accounted for")
+	-- A full spool stays full when its nominal is corrected.
+	local f = Store.spool("s2")
+	f.nominalGrams, f.remainingGrams = 1000, 1000
+	Screens.push(SpoolEditScreen.new(f))
+	ed = Screens.top()
+	formField(ed, "NOMINAL").set(1200)
+	ed:save()
+	near(f.remainingGrams, 1200, 0.5, "full stays full")
+	-- DAMP -> OK survives the daily ageing pass.
+	local d = Store.spool("s3")
+	d.material, d.dryness, d.openedAt, d.driedAt = "PETG", "DAMP", Clock.now() - 40 * U.DAY, 0
+	Screens.push(SpoolEditScreen.new(d))
+	ed = Screens.top()
+	formField(ed, "DRYNESS").set("OK")
+	ed:save()
+	App.dailyChores(true)
+	eq(d.dryness, "OK", "not re-aged from openedAt")
+	Screens.popToRoot()
+end)
+
+test("review3: damaged captain inbox items are repaired, not fatal", function()
+	boot({})
+	App.saveAll()
+	local doc = json.decode(MOCK.files.printshop)
+	doc.captain.inbox = { { kind = "complete" }, { priority = 3 }, "junk", { kind = "tip", data = 5 } }
+	doc.captain.counter = "x"
+	boot({ printshop = json.encode(doc) })
+	local box = Store.data.captain.inbox
+	eq(#box, 2, "kindless and non-table items dropped")
+	for _, it in ipairs(box) do
+		eq(type(it.priority), "number")
+		eq(type(it.data), "table")
+	end
+	eq(Store.data.captain.counter, 0)
+	local j = Queue.add({ name = "AFTER REPAIR", status = "PRINTING", spoolId = "s1", printerId = "p2" })
+	Printing.finish(j, "success", { grams = 5 })   -- emits into the inbox: must not crash
+	ok(#Store.data.captain.inbox >= 1)
+end)
+
+test("review3: weekly chart, calendar days, stable cursors, v4 hour meter", function()
+	boot({})
+	local _, bad = Stats.weekly(8)
+	local before = bad[8]
+	local j = Queue.add({ name = "CANCELLED", status = "PRINTING", spoolId = "s1", printerId = "p2" })
+	Printing.finish(j, "cancelled", { grams = 3 })
+	_, bad = Stats.weekly(8)
+	eq(bad[8], before, "cancels are not failures")
+	-- Calendar days: 23:00 yesterday is "yesterday" at 08:00.
+	eq(U.dayNumber(0), 10957, "2000-01-01")
+	eq(U.fmtRelDays(82800, 86400 + 28800), "yesterday")
+	eq(U.fmtRelDays(3600, 82800), "today")
+	-- Maintenance cursor stays on the same task when rows re-sort.
+	Screens.push(MaintScreen.new())
+	local ms = Screens.top()
+	frames(1)
+	ms.list:select(2)
+	local id = ms.rows[2].task.id
+	ms.rows[2].task.lastAt = 1           -- now the most overdue: sorts to the top
+	Store.markDirty()
+	frames(1)
+	eq(ms.rows[ms.list.sel].task.id, id, "cursor follows the task")
+	Screens.popToRoot()
+	-- v4 migration starts hour-based tasks from the printer's current meter.
+	local d = { printers = { { id = "p1", stats = { printSeconds = 200 * 3600 } } }, jobs = {},
+		maintenance = { tasks = { { id = "m1", printerId = "p1", interval = { kind = "hours", value = 50 }, last = 1000 } } } }
+	Schema.migrations[4](d)
+	near(d.maintenance.tasks[1].lastHours, 200, 0.01)
+	-- Disabled tasks aren't suggested.
+	for _, t in ipairs(Store.data.maintenance.tasks) do t.enabled = false end
+	Store.markDirty()
+	for _, sg in ipairs(Stats.suggestions()) do ok(sg.kind ~= "maint", "no disabled chore suggested") end
+end)
+
+---------------------------------------------------------------------------
+
+print("")
+for _, f in ipairs(results.failures) do print("\nFAIL: " .. f) end
+print(string.format("\n%d passed, %d failed", results.pass, results.fail))
+os.exit(results.fail == 0 and 0 or 1)
