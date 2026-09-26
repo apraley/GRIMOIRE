@@ -285,3 +285,34 @@ function NPCGen.genPopulation(W, r)
     if n.age < 20 then n.p.met = true; n.p.f = n.p.f + r:i(-10, 20) end
   end
 end
+
+-- People who moved away stay in W.npcs (ids are stable and the timeline,
+-- rumors and high-score boards still name them), but after a month they
+-- keep only who they were: their belongings, wants, secrets and ties to
+-- everyone else are dropped so the save doesn't grow with every departure.
+function NPCGen.compactGone(day)
+  local newly = false
+  for _, n in ipairs(W.npcs) do
+    if n.status == "gone" and not n.compact then
+      n.goneDay = n.goneDay or day
+      if day - n.goneDay >= 30 then
+        n.compact = true
+        newly = true
+        n.poss, n.wants, n.secrets, n.rel = {}, {}, {}, {}
+        local keep = {}
+        for i = math.max(1, #n.mem - 2), #n.mem do keep[#keep + 1] = n.mem[i] end
+        n.mem = keep
+        n.crush, n.partner, n.dateToday, n.gig = nil, nil, nil, nil
+      end
+    end
+  end
+  if not newly then return end
+  for _, n in ipairs(W.npcs) do
+    if n.status == "active" then
+      for _, id in ipairs(U.keys(n.rel)) do
+        local o = W.npcs[id]
+        if o and o.compact then n.rel[id] = nil end
+      end
+    end
+  end
+end

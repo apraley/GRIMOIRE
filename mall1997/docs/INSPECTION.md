@@ -92,41 +92,42 @@ the one in earlier drafts of this document.
   On top of those, the concourses and food court show an anonymous crowd
   sized from the day's footfall (see below).
 - **Stores:**
-  - 20 stores' popularity moved by 8 or more points;
-  - cash went down at 75 stores and up at 60; 27 are in trouble and 19 are
-    running sales;
+  - 19 stores' popularity moved by 8 or more points;
+  - 62 of 138 stores were profitable in the last week, 26 are in trouble
+    and 17 are running sales. (Cash now falls at most stores over a month,
+    because owners take profits out; see "Year two" below.)
   - six closings were announced, with liquidation sales;
-  - five managers were fired and replaced, and four more were brought in
+  - four managers were fired and replaced, and six more were brought in
     from out of town;
-  - three new tenants opened, shaped by current trends.
+  - four new tenants opened, shaped by current trends.
 - **People:**
-  - 18 hires, 9 quits and 11 manager changes;
-  - 9 new couples and 24 partner changes, plus dates and anniversaries;
-  - 507 of 509 NPCs visited the mall, averaging 8.9 distinct areas each.
-- **Rumors:** 48 live rumors. Mall myths reach up to about 215 people. The
-  player bot was talked about by 84 NPCs.
-- **Crime:** 50 NPC thefts, 11 caught.
+  - 20 hires, 7 quits and 12 manager changes;
+  - 7 new couples and 21 partner changes, plus dates and anniversaries;
+  - 512 of 517 NPCs visited the mall, averaging 8.8 distinct areas each.
+- **Rumors:** 56 live rumors. Mall myths reach up to about 215 people. The
+  player bot's new job was heard about by 208 NPCs.
+- **Crime:** 49 NPC thefts, 17 caught.
 - **Arcade:** a tournament with 43 entrants and 7 new records.
-- **Save:** about 705 KB.
+- **Save:** about 714 KB.
 
 Across seeds 7, 42 and 1234, the same 30 days produce:
 
 | | Feuds | Closures | Couples | Manager changes | Openings |
 |---|---|---|---|---|---|
-| Range | 0–2 | 0–2 | 6–10 | 9–11 | 3–5 |
+| Range | 0–1 | 0 | 6–10 | 9–10 | 4 |
 
-Closures stay low in the first month because most stores that announce
+No store finishes closing in the first month: stores that announce
 closing still have a liquidation sale running when day 30 ends.
 
 ### 150 days (seed 1997, to late January 1998)
 
-- **Stores:** 34 closures, 26 openings, 22 feuds and 43 manager changes.
-- **People:** 27 couples and 21 breakups.
-- **Crime:** 145 thefts (63 caught) and 7 store security upgrades.
+- **Stores:** 34 closures, 27 openings, 18 feuds and 43 manager changes.
+- **People:** 32 couples and 25 breakups.
+- **Crime:** 134 thefts (63 caught) and 8 store security upgrades.
 - **Calendar and management events:** a No Wheels policy, Black Friday, the
   mall Santa, *The Unsinkable* opening on Dec 19 (which started a trend),
   New Year 1998, and the fountain renovation.
-- **January slump:** 17 of 127 stores were profitable in the last week.
+- **January slump:** 20 of 128 stores were profitable in the last week.
 
 ## After the first Simulator runs
 
@@ -151,4 +152,53 @@ up two problems that the tests could not see:
     open floor and stop at shop windows. Their number follows the day's
     footfall and the hour, so a Saturday afternoon or Black Friday is
     packed, and a January weekday morning is nearly empty.
+
+## Year two
+
+A 400-day run (`lua5.4 tools/sim30.lua 1997 400 --bot`) showed the store
+economy going flat in the second year:
+
+- By September 1998, 94 of 127 stores were profitable.
+- Only 2 were in trouble.
+- Even the bottom tenth of stores held $6,400 in cash.
+
+Three things caused this:
+
+1. **Survivorship.** Weak stores closed and were replaced by better ones.
+   Average store quality climbed from 0.47 to 0.68 over the year.
+2. **Rents never moved.** Each store's rent was set on opening day, so a
+   store that did well paid a smaller and smaller share of its sales.
+3. **Cash only piled up.** A store with a $25,000 cushion could not get into
+   trouble however bad a season was.
+
+What changed:
+
+- **Annual lease renewals** (`Stores.leaseCheck`). Each lease is re-priced
+  against the store's last eight weeks of sales. The rent goes up at least
+  3% and at most 35%. A store that is in trouble and in debt gets rent
+  relief instead. Big increases and rent cuts go into the timeline.
+- **Owners take profits out.** Each week, half of any cash above four weeks
+  of operating costs leaves the store.
+- **Stores go stale.** Without a trend behind it, a store slowly loses
+  quality. A store with money can **remodel** to win it back ("closed for a
+  weekend and reopened with a new look").
+- **The outlet mall competes.** From April 1998, clothing, shoe, sporting
+  goods and department stores lose some of their share of shoppers.
+- **Departed NPCs are compacted.** A month after someone moves away, they
+  keep their name, look and relationship with the player. Their
+  possessions, wants, secrets and ties to everyone else are dropped. The
+  save at day 400 went from 1.5 MB to 1.3 MB.
+
+After the changes, the same 400 days show:
+
+- Store closings every month of 1998: a wave of 7–8 a month through the
+  spring, after the January slump and the outlet mall opening, then 1–3 a
+  month.
+- 4–8 openings a month.
+- Lease renewals throughout the year and manager changes every month.
+- 86 closures and 76 openings in total.
+
+Summer is still easy on stores. 1998 summer footfall is about 30% above the
+spring, and by late September 1998 only 4 stores are in trouble, against 23
+in January.
 

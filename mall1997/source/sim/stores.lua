@@ -140,6 +140,10 @@ function Stores.weight(s, day)
   if s.type == "department" then w = w * 4 end
   if s.type == "food" then w = w * 1.8 end
   if s.type == "cinema" then w = w * 2.5 end
+  -- the outlet mall takes the bargain hunters
+  if W.mall.outlet and (s.type == "clothing" or s.type == "shoes" or s.type == "department" or s.type == "sporting") then
+    w = w * 0.88
+  end
   if s.stock < 25 then w = w * 0.7 end
   if Management then w = w * Management.neighborEffect(s) end
   return w
@@ -168,6 +172,34 @@ function Stores.calibrateRent(s, totalW)
   totalW = totalW or Stores.totalWeight()
   local wk = Stores.expectedWeekly(s, 52, totalW)
   s.rent = math.floor(wk * 4.3 * (s.type == "department" and 0.2 or 0.25))
+end
+
+-- Once a year each lease comes up for renewal and the landlord re-prices
+-- it against what the store actually sells. Without this, rents set on
+-- opening day never moved, successful stores banked cash forever, and by
+-- the second year almost nobody was in trouble.
+function Stores.leaseCheck(s, day)
+  s.lease = s.lease or (day + 30 + U.hash(W.seed, "lease", s.id) % 330)
+  if day < s.lease then return end
+  s.lease = day + 364
+  local n, sum = 0, 0
+  for i = math.max(1, #s.hist - 7), #s.hist do sum = sum + s.hist[i]; n = n + 1 end
+  if n < 4 then return end
+  local old = s.rent
+  if (s.trouble or 0) >= 2 and s.cash < 0 then
+    -- the landlord would rather have a tenant than a papered-over window
+    s.rent = math.floor(old * 0.88)
+    Timeline.add("store", "Mall management cut " .. s.name .. "'s rent to keep them from leaving.", 1)
+    return
+  end
+  local market = sum / n * 4.3 * (s.type == "department" and 0.22 or 0.30)
+  s.rent = math.floor(U.clamp(market, old * 1.03, old * 1.35))
+  local pct = math.floor((s.rent / old - 1) * 100 + 0.5)
+  if pct >= 15 then
+    Timeline.add("store", s.name .. " renewed its lease. The rent went up " .. pct .. "%.", 1)
+    local m = s.mgr and W.npcs[s.mgr]
+    if m then Memory.add(m, "lease", "our rent went up " .. pct .. "% when the lease renewed") end
+  end
 end
 
 -- Close out one day's trading for every store.
@@ -232,6 +264,20 @@ function Stores.weekly(day)
       s.hist[#s.hist + 1] = math.floor(s.salesWeek)
       U.trim(s.hist, 12)
       s.profitWeek = math.floor(s.salesWeek - (s.costWeek or 0))
+      -- the owner takes profits out rather than letting cash pile up in the
+      -- register, so a good year doesn't make a store immune to a bad one
+      local reserve = (s.costWeek or 0) * 4
+      -- ...or spends it on a remodel when the place is starting to look tired
+      if (s.q or 0.5) < 0.55 and reserve > 0 and s.cash > reserve * 1.2 and not s.closing and r:chance(0.08) then
+        local cost = math.floor(s.cash * r:range(0.3, 0.5))
+        s.cash = s.cash - cost
+        s.q = math.min(1, (s.q or 0.5) + r:range(0.12, 0.22))
+        s.buzz = (s.buzz or 0) + 8
+        Timeline.add("store", s.name .. " " .. r:pick({ "remodeled: new carpet, new sign, same staff.",
+          "closed for a weekend and reopened with a new look.", "put in new fixtures and a neon sign.",
+          "redid its window displays and repainted." }), 1)
+      end
+      if s.cash > reserve and reserve > 0 then s.cash = s.cash - math.floor((s.cash - reserve) * 0.5) end
       s.costWeek = 0
       local weekCost = s.rent / 4.3
       -- a store in the black refreshes its displays
@@ -242,6 +288,10 @@ function Stores.weekly(day)
       if (s.theft or 0) > 4 then target = target - 3 end
       s.pop = U.clamp(s.pop + (target - s.pop) * 0.15 + r:range(-3, 3), 3, 100)
       s.buzz = (s.buzz or 0) * 0.6
+      -- concepts go stale: without a trend behind it a store slowly loses
+      -- its edge, so the stores that survived year one aren't safe forever
+      if Trends.storeBoost(s) <= 1 then s.q = math.max(0.05, (s.q or 0.5) - 0.003) end
+      Stores.leaseCheck(s, day)
       -- margins
       if s.cash < -weekCost * 1.5 and (s.profitWeek or 0) < 0 then s.trouble = (s.trouble or 0) + 1
       elseif s.cash > 0 then s.trouble = math.max(0, (s.trouble or 0) - 1) end
@@ -420,7 +470,7 @@ function Stores.openNew(sl, day, r)
   local tn = Trends.tenantName(typ, r)
   if tn then s.name = tn end
   s.opened = day
-  s.q = r:range(0.3, 0.95)
+  s.q = r:range(0.25, 0.85)
   s.pop = r:i(45, 75)
   s.buzz = 15
   s.cash = r:i(5000, 20000) * 100

@@ -275,6 +275,7 @@ function Social.daily(day)
   local active = 0
   for _, n in ipairs(W.npcs) do if n.status == "active" then active = active + 1 end end
   W.mall.population = active
+  NPCGen.compactGone(day)
   if active < (W.mall.basePop or active) and r:chance(0.5) then
     local role = r:pick({ "teen", "shopper", "parent", "teen" })
     local n = NPCGen.new(W, r, role, role == "teen" and r:i(14, 18) or r:i(25, 55))
@@ -289,6 +290,7 @@ end
 
 function Social.moveAway(n, r)
   n.status = "gone"
+  n.goneDay = Clock.day(W.t)
   n.loc = "home"; n.route = nil
   local where = r:pick({ "Phoenix", "Ohio", "live with their dad", "college", "Florida", "the Army", "Portland" })
   Timeline.add("people", NPCGen.name(n) .. " moved away (" .. where .. ").", n.p.met and 2 or 1)
