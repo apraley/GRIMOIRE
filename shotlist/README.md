@@ -22,6 +22,16 @@ No assets or fonts are shipped. Large type uses a built-in 5×7 pixel font
 (`ui/pixfont.lua`) scaled 2–10×, and small type uses the system font, so the
 source folder compiles as it is.
 
+### In a browser
+
+`python3 tools/build_web.py OUT_DIR` writes a playable page (`index.html` +
+`glue.wasm`). It runs the unchanged `source/` Lua in a Lua 5.4 VM
+([wasmoon](https://github.com/ceifa/wasmoon), MIT, fetched from npm) on a
+browser stand-in for the Playdate runtime (`web/pdweb.lua`). Data is kept in
+the browser's storage the way the Data folder is kept on device. Serve the
+folder over HTTP (`python3 -m http.server -d OUT_DIR`); it is not the Panic
+Simulator, so check fonts and timing there before a shoot.
+
 ## LIVE SHOOT: the home screen
 
 | Input | Action |
@@ -164,6 +174,8 @@ FRAMES=/tmp/sl ./run_tests.sh               # + PNG screenshots (python3 + Pillo
   ring and restore, migrations, the report, and import/export.
 - `test_workflows.lua` covers the system menu, undo, the builder, the
   browser, gear presets, settings, import and project switching.
+- `test_web.lua` boots the app on the browser runtime, logs a take, uses the
+  system menu, keyboard and crank, and checks that a reload restores it.
 - `sim_commercial.lua` plays the full 60-shot day through button presses
   only, and fails if NEXT ever takes more than 2 interactions. See
   [docs/FRICTION_AUDIT.md](docs/FRICTION_AUDIT.md).
