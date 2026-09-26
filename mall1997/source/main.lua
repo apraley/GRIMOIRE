@@ -60,6 +60,7 @@ import "arcade/racer"
 
 import "ui/sprites"
 import "ui/mapview"
+import "ui/crowd"
 import "scenes/scene"
 import "scenes/title"
 import "scenes/explore"

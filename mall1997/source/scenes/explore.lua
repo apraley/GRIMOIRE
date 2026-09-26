@@ -37,8 +37,11 @@ end
 
 function Explore.area() return MapView.area end
 
+-- how far into the current world minute the display is (0..1)
+function Explore.sub() return (ex.frames % FPM) / FPM end
+
 function Explore.npcPos(n)
-  local a, x, y, moving, dir = NPCAI.pos(n)
+  local a, x, y, moving, dir = NPCAI.pos(n, Explore.sub())
   return x or 0, y or 0, moving, dir
 end
 
@@ -591,6 +594,10 @@ function ex:draw(isTop)
       end
     end
   end
+  -- the anonymous crowd
+  Crowd.each(p.area, cx, function(x, y, lk, dir, fr)
+    if y > cy - 10 and y < cy + 270 then ents[#ents + 1] = { y = y, x = x, lk = lk, dir = dir, fr = fr } end
+  end, Explore.sub())
   local comp = p.companion and W.npcs[p.companion]
   if comp then
     local d = DIRS[p.dir]

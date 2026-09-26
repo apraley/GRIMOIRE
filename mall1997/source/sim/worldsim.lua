@@ -73,7 +73,7 @@ end
 function WorldSim.advance(t, step, yieldEvery)
   step = step or 5
   local n = 0
-  while W.t < t do
+  while t - W.t > 0.001 do
     WorldSim.tick(math.min(step, t - W.t))
     n = n + 1
     if yieldEvery and n % yieldEvery == 0 and coroutine.isyieldable() then coroutine.yield() end

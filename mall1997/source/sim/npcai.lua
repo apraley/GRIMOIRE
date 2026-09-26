@@ -11,7 +11,8 @@ local SPEED = { walker = 55, security = 70, default = 85 }
 
 local ACT_SPOT = { work = "work", shop = "shop", eat = "eat", hang = "hang", play = "play",
   patrol = "hang", monitor = "work", fix = "work", ["break"] = "break", stage = "stage",
-  chief = "chief", wait = "wait", date = "hang", lap = "lap", inspect = "hang", santa = "hang", tourney = "play" }
+  chief = "chief", wait = "wait", date = "hang", lap = "lap", inspect = "hang", santa = "hang", tourney = "play",
+  browse = "hang" }
 
 local function active(n) return n.status == "active" end
 
@@ -40,12 +41,12 @@ local function pickStore(n, r, types)
 end
 NPCAI.pickStore = pickStore
 
-local TEEN_SPOTS = { "arcade", "fc", "music", "clothing", "fountain", "games", "cinema", "shoes", "gifts", "c2", "lot" }
+local TEEN_SPOTS = { "arcade", "fc", "music", "clothing", "fountain", "games", "cinema", "shoes", "gifts", "c2", "lot", "window" }
 local CLIQUE_PREF = {
-  skaters = { arcade = 3, lot = 3, music = 2, shoes = 2 }, preps = { clothing = 3, fc = 2, gifts = 2, shoes = 2 },
+  skaters = { arcade = 3, lot = 3, music = 2, shoes = 2 }, preps = { clothing = 3, fc = 2, gifts = 2, shoes = 2, window = 2 },
   ["alt kids"] = { music = 4, fc = 1, gifts = 2 }, ["band kids"] = { music = 3, fc = 2, games = 1 },
   jocks = { fc = 3, shoes = 3, arcade = 1 }, ["mall rats"] = { arcade = 3, fc = 3, fountain = 2 },
-  goths = { music = 3, gifts = 3, fountain = 1 }, nerds = { arcade = 4, games = 4, fc = 1 },
+  goths = { music = 3, gifts = 3, fountain = 1, window = 1 }, nerds = { arcade = 4, games = 4, fc = 1 },
 }
 
 local function typeStore(r, typ)
@@ -66,6 +67,10 @@ local function spotArea(n, r, what)
   elseif what == "c2" then return "c2", "hang"
   elseif what == "lot" then return "lot", "hang"
   elseif what == "cinema" then return "s" .. W.mall.cinema, "hang"
+  elseif what == "window" then
+    local s = NPCAI.pickStore(n, r)
+    if s and s.type ~= "food" then return (Areas.storefront(s)), "browse", s.id end
+    return "c1", "hang"
   else
     local s = typeStore(r, what)
     if s then return Areas.storeArea(s), "shop", s.id end
@@ -122,7 +127,16 @@ local function shopperPlan(n, day, info, plan, r, from, to)
   for _ = 1, stops do
     if t >= to - 15 then break end
     local s = pickStore(n, r)
-    if s then
+    -- look in a window or two on the way (without always going in)
+    if s and s.type ~= "food" and r:chance(0.6) then
+      local ws = r:chance(0.4) and pickStore(n, r) or s
+      if ws and ws.type ~= "food" then
+        local wd = r:i(4, 12)
+        block(plan, t, math.min(to, t + wd), (Areas.storefront(ws)), "browse", ws.id)
+        t = t + wd
+      end
+    end
+    if s and t < to - 10 then
       local dur = r:i(12, 40)
       block(plan, t, math.min(to, t + dur), Areas.storeArea(s), s.type == "food" and "eat" or "shop", s.id)
       t = t + dur + r:i(2, 8)
@@ -325,6 +339,12 @@ function NPCAI.depart(n, toA, act, ref, sk)
       if #ws > 0 then local s = ws[1 + (n.id % #ws)]; sxx, syy = s.x, s.y end
     end
     tx, ty = px(sxx) + r:i(-4, 4), px(syy) + r:i(-3, 3)
+    if act == "browse" and ref and W.stores[ref] then
+      local s = W.stores[ref]
+      local _, _, _, fx, fy = Areas.storefront(s)
+      local spread = (s.row == "top" or s.row == "bot") and math.max(0, (s.w or 4) // 2 - 1) or 0
+      tx, ty = px(fx + r:i(-spread, spread)) + r:i(-3, 3), px(fy) + r:i(-2, 2)
+    end
   end
   local fromA = n.loc or "home"
   if n.route then
@@ -334,7 +354,11 @@ function NPCAI.depart(n, toA, act, ref, sk)
   local legs = NPCAI.route(fromA, n.x or 0, n.y or 0, toA, tx, ty, r)
   local speed = SPEED[n.role] or SPEED.default
   if n.age < 20 then speed = speed + 10 end
-  local t = W.t
+  -- leg times are minutes since n.rb (a whole minute), so they stay small
+  -- and precise in single-precision floats (Playdate Lua) however late in
+  -- the game it is
+  n.rb = math.floor(W.t)
+  local t = W.t - n.rb
   for _, l in ipairs(legs) do
     l.t0 = t
     local d = legLength(l.pts)
@@ -350,13 +374,22 @@ function NPCAI.depart(n, toA, act, ref, sk)
   n.tx, n.ty = tx, ty
 end
 
--- position at current world time; returns area, x, y, moving, dir
-function NPCAI.pos(n)
+-- current time on n's route clock (see NPCAI.depart); sub is how far into
+-- the current minute the display is (0..1), so walkers move every frame
+-- rather than once per world tick
+local function routeNow(n, sub)
+  local m = math.floor(W.t)
+  return (m - (n.rb or m)) + (W.t - m) + (sub or 0)
+end
+
+-- position at current world time (+ sub minutes for smooth display);
+-- returns area, x, y, moving, dir
+function NPCAI.pos(n, sub)
   local rt = n.route
   if not rt then return n.loc, n.x, n.y, false end
   local l = rt[n.leg]
   if not l then return n.loc, n.x, n.y, false end
-  local t = W.t
+  local t = routeNow(n, sub)
   local frac = (l.t1 > l.t0) and U.clamp((t - l.t0) / (l.t1 - l.t0), 0, 1) or 1
   local pts = l.pts
   local total = legLength(pts)
@@ -377,11 +410,20 @@ function NPCAI.pos(n)
   return l.a, pts[#pts - 1], pts[#pts], true
 end
 
+-- which way someone looking in a store's window faces
+local function windowDir(s)
+  if s.row == "top" then return "up" elseif s.row == "bot" then return "down"
+  elseif s.row == "west" then return "left" elseif s.row == "east" then return "right" end
+  return "up"
+end
+
 local function arrive(n)
   n.route = nil
   n.loc = n.dest
   n.x, n.y = n.tx, n.ty
   n.act = n.destAct
+  n.idleDir = nil
+  if n.act == "browse" and n.destRef and W.stores[n.destRef] then n.idleDir = windowDir(W.stores[n.destRef]) end
   n.arrivedAt = W.t
   Econ.onArrive(n, n.destAct, n.destRef)
 end
@@ -396,7 +438,8 @@ function NPCAI.update(dt)
     if n.status == "active" then
       -- travel progress
       if n.route then
-        while n.route and n.route[n.leg] and t >= n.route[n.leg].t1 do
+        local rt = routeNow(n)
+        while n.route and n.route[n.leg] and rt >= n.route[n.leg].t1 do
           n.leg = n.leg + 1
           if not n.route[n.leg] then arrive(n) end
         end
@@ -457,5 +500,6 @@ function NPCAI.describe(n)
     lap = "walking laps on the ", date = "on a date at ", stage = "on stage at the ", home = "heading home" }
   local v = verbs[act] or (act .. " at ")
   if act == "watch" or act == "home" then return v end
+  if act == "browse" and n.destRef and W.stores[n.destRef] then return "window-shopping outside " .. W.stores[n.destRef].name end
   return v .. where
 end

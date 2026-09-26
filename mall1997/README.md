@@ -69,8 +69,10 @@ font.
   walkers, security, maintenance, mall management) each have a home, a job,
   a daily schedule, friends, enemies, crushes, partners, money, a mood, wants,
   secrets, a reputation, memories and possessions. They physically walk
-  between areas along timed routes. You can follow someone from the arcade to
-  the food court.
+  between areas along timed routes and stop to window-shop. You can follow
+  someone from the arcade to the food court. Around them, an anonymous crowd
+  sized from the day's footfall fills the concourses: busy on Saturday
+  afternoons, nearly empty on a January weekday morning.
 - **Relationships and rumors.** NPCs who share a space talk: friendships form
   and fade, crushes turn into dates and breakups, and cheating leaks. Rumors
   spread person to person, get exaggerated in the retelling, and change how
@@ -107,7 +109,7 @@ source/
   minigames/          job minigames (record, video, food, arcade, cinema, photo, books,
                       department, security) + registry
   arcade/             cabinet games (serpent, orbital, tower, racer)
-  ui/                 gfx (double-border boxes, neon dithers, text), input, sprites/portraits, mapview
+  ui/                 gfx (double-border boxes, neon dithers, text), input, sprites/portraits, mapview, crowd
   scenes/             scene stack, title, explore, dialog, shop, interact, menu, play, day, secret
 ```
 

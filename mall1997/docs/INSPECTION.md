@@ -83,41 +83,72 @@ announced in the timeline but did nothing).
 
 ### 30 days (seed 1997, with the autopilot player)
 
-- **Mall:** 136 stores (5 department stores, 11 food stalls, cinema, arcade),
-  508 NPCs, and 100–185 people physically in the mall at noon or 7 PM.
+These numbers are from after the fix for Playdate's 32-bit integers, which
+changed the RNG's output, so seed 1997 now generates a different mall than
+the one in earlier drafts of this document.
+
+- **Mall:** 135 stores (3 department stores, 11 food stalls, cinema, arcade),
+  499 NPCs, and 97–185 named people physically in the mall at noon or 7 PM.
+  On top of those, the concourses and food court show an anonymous crowd
+  sized from the day's footfall (see below).
 - **Stores:**
-  - 17 stores' popularity moved by 8 or more points;
-  - cash went down at 71 stores and up at 65; 24 are in trouble and 18 are
+  - 20 stores' popularity moved by 8 or more points;
+  - cash went down at 75 stores and up at 60; 27 are in trouble and 19 are
     running sales;
-  - five closings were announced, with liquidation sales;
-  - five managers were fired and replaced, and two more were brought in from
-    out of town;
-  - two trend-shaped tenants opened ("Zoot & Suit" during the swing revival).
+  - six closings were announced, with liquidation sales;
+  - five managers were fired and replaced, and four more were brought in
+    from out of town;
+  - three new tenants opened, shaped by current trends.
 - **People:**
-  - 24 hires, 9 quits and 9 manager changes;
-  - 5 new couples and 14 partner changes, plus dates and anniversaries;
-  - 517 of 519 NPCs visited the mall, averaging 8.9 distinct areas each.
-- **Rumors:** 48 live rumors. Mall myths reach about 230 people. The player
-  bot was talked about by 75 NPCs.
-- **Crime:** 40 NPC thefts, 22 caught.
-- **Arcade:** a tournament with 36 entrants and 3 new records.
-- **Save:** about 715 KB.
+  - 18 hires, 9 quits and 11 manager changes;
+  - 9 new couples and 24 partner changes, plus dates and anniversaries;
+  - 507 of 509 NPCs visited the mall, averaging 8.9 distinct areas each.
+- **Rumors:** 48 live rumors. Mall myths reach up to about 215 people. The
+  player bot was talked about by 84 NPCs.
+- **Crime:** 50 NPC thefts, 11 caught.
+- **Arcade:** a tournament with 43 entrants and 7 new records.
+- **Save:** about 705 KB.
 
 Across seeds 7, 42 and 1234, the same 30 days produce:
 
 | | Feuds | Closures | Couples | Manager changes | Openings |
 |---|---|---|---|---|---|
-| Range | 1–2 | 0–1 | 3–9 | 6–14 | 2–5 |
+| Range | 0–2 | 0–2 | 6–10 | 9–11 | 3–5 |
 
-The range is 0–1 closures because most stores that announce closing in the
-first month still have a liquidation sale running when day 30 ends.
+Closures stay low in the first month because most stores that announce
+closing still have a liquidation sale running when day 30 ends.
 
 ### 150 days (seed 1997, to late January 1998)
 
-- **Stores:** 33 closures, 27 openings, 18 feuds and 46 manager changes.
-- **People:** 31 couples and 21 breakups.
-- **Crime:** 123 thefts (68 caught) and 5 store security upgrades.
+- **Stores:** 34 closures, 26 openings, 22 feuds and 43 manager changes.
+- **People:** 27 couples and 21 breakups.
+- **Crime:** 145 thefts (63 caught) and 7 store security upgrades.
 - **Calendar and management events:** a No Wheels policy, Black Friday, the
   mall Santa, *The Unsinkable* opening on Dec 19 (which started a trend),
   New Year 1998, and the fountain renovation.
-- **January slump:** 15 of 130 stores were profitable in the last week.
+- **January slump:** 17 of 127 stores were profitable in the last week.
+
+## After the first Simulator runs
+
+Running the game in the real Simulator, rather than my headless mock, turned
+up two problems that the tests could not see:
+
+- **Walkers hopped.** The world ticks once per game minute (every 30 frames),
+  and NPC positions were only computed at those ticks. Anyone walking jumped
+  about 90 pixels once a second. The display now interpolates within the
+  minute. Route times are also kept relative to the minute each walk started,
+  so they stay precise in Playdate's single-precision floats however late
+  in the game it is.
+- **The mall looked empty.** At 3:25 PM on a Friday about 200 named NPCs were
+  in the mall, but most of them were staff inside stores. Only about 10 were
+  out in two long concourses, so the player usually saw nobody.
+  - Named shoppers now window-shop on their way to stores, standing at the
+    glass facing in.
+  - The rest of the day's footfall (the 3,000–8,000 visitors a day the store
+    economics already count) now appears as an ambient crowd
+    (`ui/crowd.lua`). The crowd is derived and never saved: each extra is a
+    function of the seed, area, index and time. Extras stroll a stretch of
+    open floor and stop at shop windows. Their number follows the day's
+    footfall and the hour, so a Saturday afternoon or Black Friday is
+    packed, and a January weekday morning is nearly empty.
+

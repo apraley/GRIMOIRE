@@ -19,7 +19,7 @@ end
 
 -- fields that are rebuilt after loading (plans, in-flight routes)
 local TRANSIENT = { plan = true, route = true, leg = true, pi = true, tx = true, ty = true,
-  destAct = true, destRef = true, arrivedAt = true, _usedNames = true }
+  destAct = true, destRef = true, arrivedAt = true, _usedNames = true, rb = true, idleDir = true }
 
 local function isSet(t)
   local c = 0
