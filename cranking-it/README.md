@@ -25,7 +25,8 @@ machine is a different **physical metaphor for the crank**:
 | XII | HAND-CRANKED CIVILIZATION | the wheel of history |
 | XIII | ONE BILLION YEARS | geological time, on a logarithmic scale |
 
-The design of each machine is in [docs/DESIGN.md](docs/DESIGN.md).
+The design of each machine is in [docs/DESIGN.md](docs/DESIGN.md). What to verify on the
+first real-hardware build is in [docs/PLAYTEST.md](docs/PLAYTEST.md).
 
 ## The museum
 

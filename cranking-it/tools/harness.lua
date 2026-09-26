@@ -30,9 +30,49 @@ function H.boot(opts)
   M.endFrame()
 end
 
+-- Optional human imperfection layer for difficulty calibration:
+--   HUMAN_JITTER  relative crank-speed noise (e.g. 0.25)
+--   HUMAN_MAX     max crank degrees per frame (36 = 3 turns/s)
+--   HUMAN_DELAY   reaction delay in frames applied to button changes
+H.human = nil
+if os.getenv("HUMAN_JITTER") then
+  H.human = {
+    jitter = tonumber(os.getenv("HUMAN_JITTER")) or 0.25,
+    max = tonumber(os.getenv("HUMAN_MAX") or "36"),
+    delay = tonumber(os.getenv("HUMAN_DELAY") or "5"),
+    rng = nil, queue = {},
+  }
+end
+local humanHeld = 0
+
 -- advance one frame with crank delta (degrees)
 function H.frame(crank)
   crank = crank or 0
+  local hu = H.human
+  if hu then
+    if not hu.rng then hu.rng = U.rng(4242) end
+    if crank ~= 0 then
+      crank = crank * (1 + hu.jitter * hu.rng:gauss())
+      crank = math.max(-hu.max, math.min(hu.max, crank))
+    end
+    -- delay button state changes by the reaction time
+    local q = hu.queue
+    q[#q + 1] = held
+    if #q > hu.delay then humanHeld = table.remove(q, 1) end
+    local real = held
+    held = humanHeld
+    M.crankChange = crank
+    M.crankPos = (M.crankPos + crank) % 360
+    M.buttonsCur = held
+    M.buttonsPressed = held & ~prevHeld
+    M.buttonsReleased = prevHeld & ~held
+    prevHeld = held
+    held = real
+    M.beginFrame()
+    playdate.update()
+    M.endFrame()
+    return
+  end
   M.crankChange = crank
   M.crankPos = (M.crankPos + crank) % 360
   M.buttonsCur = held
