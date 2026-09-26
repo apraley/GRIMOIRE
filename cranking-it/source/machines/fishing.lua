@@ -85,7 +85,7 @@ local FishingLine = Machine.define({
   howto = "Hold A, crank back, flick forward to cast; let go of A to stop the lure. Jig to tempt. When the tip DIVES, strike hard. Reel when tension is safe. L/R: drag, U/D: rod. Pump: lift, lower, reel.",
   controls = { { "CRANK", "reel in, jig, strike" }, { "A", "hold: open bail / cast" }, { "DPAD", "up/down rod, left/right drag" } },
   modes = { "tutorial", "standard", "endless" },
-  medals = { standard = { 150, 450, 900 }, endless = { 200, 600, 1300 } },
+  medals = { standard = { 120, 300, 520 }, endless = { 200, 600, 1300 } },
   scoreLabel = "POINTS",
   unlockCost = 0,
   achievements = {
@@ -96,8 +96,8 @@ local FishingLine = Machine.define({
     { id = "finesse", name = "LIGHT HANDS", desc = "Land 10 lb+ on drag I or II." },
   },
   challenges = {
-    { id = "gossamer", name = "GOSSAMER", desc = "Line breaks at 60% strength.", mode = "standard", difficulty = 2, goal = 250, reward = 2, cost = 2 },
-    { id = "squall", name = "SQUALL", desc = "A heavy swell heaves the rod tip.", mode = "standard", difficulty = 2, goal = 250, reward = 3, cost = 2 },
+    { id = "gossamer", name = "GOSSAMER", desc = "Line breaks at 60% strength.", mode = "standard", difficulty = 2, goal = 200, reward = 2, cost = 2 },
+    { id = "squall", name = "SQUALL", desc = "A heavy swell heaves the rod tip.", mode = "standard", difficulty = 2, goal = 200, reward = 3, cost = 2 },
     { id = "grey", name = "STILL PULLING", desc = "Endless. The Old Grey is hungry.", mode = "endless", difficulty = 3, goal = 900, reward = 3, cost = 3 },
   },
   records = {

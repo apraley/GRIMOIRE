@@ -97,7 +97,7 @@ local Civ = Machine.define({
   howto = "One crank turn = one generation. The wheel has 6 sectors: go SLOW where you want effort, FAST past the rest. Starved spheres fail. Spin whole turns too fast = unrest. Backward = friction. Events: UP/DOWN, A. B spends a HAND.",
   controls = { { "CRANK", "linger / hurry" }, { "B", "spend a hand" }, { "A", "chronicle / decide" }, { "DPAD", "choose" } },
   modes = { "tutorial", "standard", "endless" },
-  medals = { standard = { 2500, 5500, 7000 }, endless = { 4000, 9000, 15000 } },
+  medals = { standard = { 2000, 3800, 5200 }, endless = { 4000, 9000, 15000 } },
   scoreLabel = "HISTORY",
   unlockCost = 12,
   achievements = {
@@ -108,8 +108,8 @@ local Civ = Machine.define({
     { id = "newlands", name = "NEW LANDS", desc = "Discover an island." },
   },
   challenges = {
-    { id = "heavy", name = "HEAVY WHEEL", desc = "The realm tolerates much less haste.", mode = "standard", difficulty = 2, goal = 4500, reward = 3, cost = 2 },
-    { id = "plague", name = "PLAGUE YEARS", desc = "Sickness comes twice as often.", mode = "standard", difficulty = 2, goal = 4000, reward = 2, cost = 2 },
+    { id = "heavy", name = "HEAVY WHEEL", desc = "The realm tolerates much less haste.", mode = "standard", difficulty = 2, goal = 3500, reward = 3, cost = 2 },
+    { id = "plague", name = "PLAGUE YEARS", desc = "Sickness comes twice as often.", mode = "standard", difficulty = 2, goal = 3200, reward = 2, cost = 2 },
     { id = "ages", name = "AGES OF MAN", desc = "Endless. Rise, fall, rise again.", mode = "endless", difficulty = 3, goal = 9000, reward = 3, cost = 3 },
   },
   records = {

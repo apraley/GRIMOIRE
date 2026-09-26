@@ -133,7 +133,7 @@ local E = Machine.define({
   howto = "Crank is a lever: clockwise UP, back DOWN, middle STOP (brake). Ease the lever down to a creep before the floor, STOP level with the sill, A opens the gate. Jolts and bad stops cost tips.",
   controls = { { "CRANK", "car switch lever" }, { "A", "open / close gate" } },
   modes = { "tutorial", "standard", "endless" },
-  medals = { standard = { 1100, 2000, 2800 }, endless = { 1500, 4000, 7000 } },
+  medals = { standard = { 1000, 1700, 2300 }, endless = { 1500, 4000, 7000 } },
   scoreLabel = "FARES",
   unlockCost = 0,
   achievements = {
@@ -145,7 +145,7 @@ local E = Machine.define({
   },
   challenges = {
     { id = "worn", name = "WORN SHOES", desc = "The brake is worn: stops take longer.", mode = "standard", difficulty = 2,
-      mods = { wornBrake = true }, goal = 1400, reward = 2, cost = 2 },
+      mods = { wornBrake = true }, goal = 1200, reward = 2, cost = 2 },
     { id = "velvet", name = "VELVET GLOVES", desc = "Only grandmothers, and they hate jolts.", mode = "standard", difficulty = 2,
       mods = { grans = true }, goal = 1800, reward = 3, cost = 2 },
     { id = "night", name = "GRAVEYARD SHIFT", desc = "Endless, after midnight, hard.", mode = "endless", difficulty = 3,

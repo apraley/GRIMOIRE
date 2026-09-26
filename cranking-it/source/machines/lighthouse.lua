@@ -121,7 +121,7 @@ local L = Machine.define({
   howto = "Crank pushes the heavy lens; it answers late and coasts. Counter-crank brakes. Keep the period in the band: ships time your flashes. Beams on a ship near rocks warn it. B = fog horn.",
   controls = { { "CRANK", "push / brake the lens" }, { "B", "fog horn (limited)" } },
   modes = { "tutorial", "standard", "endless" },
-  medals = { standard = { 800, 1400, 1900 }, endless = { 800, 2000, 3500 } },
+  medals = { standard = { 700, 1250, 1700 }, endless = { 800, 2000, 3500 } },
   scoreLabel = "POINTS",
   unlockCost = 7,
   achievements = {
