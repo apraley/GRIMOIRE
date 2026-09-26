@@ -116,6 +116,9 @@ lua5.4 tools/test_machine.lua safecracker  # any machine id: fuzz all modes,
                                            # serialize round-trip, allocation probe
 lua5.4 tools/test_safecracker_solve.lua    # machine-specific scripted play
 python3 tools/check_api.py                 # every SDK call exists in the official API
+lua5.4 tools/perf_estimate.lua             # per-frame Lua cost of each machine, with a
+                                           # rough on-device estimate (rasterization excluded)
+sh tools/run_all.sh                        # everything above, for all machines
 ```
 
 `check_api.py` needs the official API list as `tools/sdk_stub.lua`

@@ -1664,6 +1664,31 @@ function M:drawGlobe(R, lava)
   end
 end
 
+-- The globe is the heaviest Lua work in the anthology (~1700 cell
+-- evaluations). It is rendered into a cached image at most every other
+-- frame (15 Hz) and blitted in between; the planet turns slowly enough
+-- that the difference is invisible, and the frame budget halves.
+function M:drawGlobeCached(R)
+  local size = 2 * R + 4
+  local img = self.globeImg
+  if not img or self.globeSize ~= size then
+    img = gfx.image.new(size, size, gfx.kColorClear)
+    self.globeImg, self.globeSize = img, size
+    self.globeAge = 99
+  end
+  self.globeAge = (self.globeAge or 99) + 1
+  local ox, oy = GX - R - 2, GY - R - 2
+  if self.globeAge >= 2 then
+    self.globeAge = 0
+    gfx.pushContext(img)
+    gfx.clear(gfx.kColorClear)
+    gfx.setDrawOffset(-ox, -oy)
+    self:drawGlobe(R, false)
+    gfx.popContext()
+  end
+  img:draw(ox, oy)
+end
+
 -- the molten proto-planet, gathering itself out of the debris
 function M:drawProto(R)
   gfx.setPattern(PT_LAVA3)
@@ -2175,7 +2200,7 @@ function M:draw()
   if R < GR then
     self:drawProto(R)
   else
-    self:drawGlobe(R, false)
+    self:drawGlobeCached(R)
   end
   if R == GR then
     local ring = Art.cached("bil_ring", 2 * GR + 24, 2 * GR + 24, buildRing)

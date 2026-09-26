@@ -548,7 +548,7 @@ end
 
 function g.clear(c)
   M.drawCalls = M.drawCalls + 1
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   local t = ctx.target
   c = c or ctx.bg
   for i = 1, t.w * t.h do
@@ -565,7 +565,7 @@ function g.fillRect(x, y, w, h)
   M.drawCalls = M.drawCalls + 1
   x, y, w, h = rectArgs(x, y, w, h)
   checkNum(x, "x") checkNum(y, "y") checkNum(w, "w") checkNum(h, "h")
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   x, y = math.floor(x + ctx.ox), math.floor(y + ctx.oy)
   w, h = math.floor(w), math.floor(h)
   if w < 0 then x = x + w w = -w end
@@ -580,7 +580,7 @@ function g.drawRect(x, y, w, h)
   M.drawCalls = M.drawCalls + 1
   x, y, w, h = rectArgs(x, y, w, h)
   checkNum(x, "x") checkNum(y, "y") checkNum(w, "w") checkNum(h, "h")
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   local lw = math.max(1, math.floor(ctx.lineWidth))
   local ox, oy = ctx.ox, ctx.oy
   ctx.ox, ctx.oy = 0, 0
@@ -604,7 +604,7 @@ function g.drawLine(x1, y1, x2, y2)
   M.drawCalls = M.drawCalls + 1
   if type(x1) == "table" then x1, y1, x2, y2 = x1.x, x1.y, x1.x2 or x1.x, x1.y2 or x1.y end
   checkNum(x1, "x1") checkNum(y1, "y1") checkNum(x2, "x2") checkNum(y2, "y2")
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   x1, y1, x2, y2 = x1 + ctx.ox, y1 + ctx.oy, x2 + ctx.ox, y2 + ctx.oy
   local lw = math.max(1, math.floor(ctx.lineWidth))
   local dx, dy = x2 - x1, y2 - y1
@@ -673,14 +673,14 @@ end
 function g.fillPolygon(...)
   M.drawCalls = M.drawCalls + 1
   local pts = polyArgs(...)
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   for i = 1, #pts, 2 do pts[i] = pts[i] + ctx.ox pts[i + 1] = pts[i + 1] + ctx.oy end
   fillPoly(pts)
 end
 function g.drawPolygon(...)
   M.drawCalls = M.drawCalls + 1
   local pts = polyArgs(...)
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   local n = #pts // 2
   for i = 1, n do
     local j = i % n + 1
@@ -728,14 +728,14 @@ function g.fillCircleAtPoint(x, y, r)
   M.drawCalls = M.drawCalls + 1
   if type(x) == "table" then x, y, r = x.x, x.y, y end
   checkNum(x, "x") checkNum(y, "y") checkNum(r, "r")
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   ellipseFill(x + ctx.ox + 0.5, y + ctx.oy + 0.5, r, r)
 end
 function g.drawCircleAtPoint(x, y, r)
   M.drawCalls = M.drawCalls + 1
   if type(x) == "table" then x, y, r = x.x, x.y, y end
   checkNum(x, "x") checkNum(y, "y") checkNum(r, "r")
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   ellipseStroke(x + ctx.ox, y + ctx.oy, r, r)
 end
 function g.fillCircleInRect(x, y, w, h)
@@ -750,21 +750,21 @@ function g.fillEllipseInRect(x, y, w, h, a0, a1)
   M.drawCalls = M.drawCalls + 1
   if type(x) == "table" then x, y, w, h, a0, a1 = x.x, x.y, x.width, x.height, y, w end
   checkNum(x, "x") checkNum(y, "y") checkNum(w, "w") checkNum(h, "h")
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   ellipseFill(x + ctx.ox + w / 2, y + ctx.oy + h / 2, w / 2, h / 2, a0, a1)
 end
 function g.drawEllipseInRect(x, y, w, h, a0, a1)
   M.drawCalls = M.drawCalls + 1
   if type(x) == "table" then x, y, w, h, a0, a1 = x.x, x.y, x.width, x.height, y, w end
   checkNum(x, "x") checkNum(y, "y") checkNum(w, "w") checkNum(h, "h")
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   ellipseStroke(x + ctx.ox + w / 2, y + ctx.oy + h / 2, w / 2, h / 2, a0, a1)
 end
 function g.drawArc(x, y, r, a0, a1)
   M.drawCalls = M.drawCalls + 1
   if type(x) == "table" then x, y, r, a0, a1 = x.x, x.y, x.radius, x.startAngle, x.endAngle end
   checkNum(x, "x") checkNum(y, "y") checkNum(r, "r") checkNum(a0, "startAngle") checkNum(a1, "endAngle")
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   ellipseStroke(x + ctx.ox, y + ctx.oy, r, r, a0, a1)
 end
 
@@ -772,7 +772,7 @@ function g.fillRoundRect(x, y, w, h, r)
   M.drawCalls = M.drawCalls + 1
   if type(x) == "table" then x, y, w, h, r = x.x, x.y, x.width, x.height, y end
   checkNum(x, "x") checkNum(y, "y") checkNum(w, "w") checkNum(h, "h") checkNum(r, "radius")
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   x, y = x + ctx.ox, y + ctx.oy
   r = math.min(r, w / 2, h / 2)
   for yy = math.floor(y), math.floor(y + h - 1) do
@@ -787,7 +787,7 @@ function g.drawRoundRect(x, y, w, h, r)
   M.drawCalls = M.drawCalls + 1
   if type(x) == "table" then x, y, w, h, r = x.x, x.y, x.width, x.height, y end
   checkNum(x, "x") checkNum(y, "y") checkNum(w, "w") checkNum(h, "h") checkNum(r, "radius")
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   local ox, oy = ctx.ox, ctx.oy
   r = math.min(r, w / 2, h / 2)
   g.drawLine(x + r, y, x + w - 1 - r, y)
@@ -835,7 +835,7 @@ local function colorOf(c) if c == 0 then return g.kColorBlack elseif c == 1 then
 
 local function blit(img, dx, dy, flip, sx0, sy0, sw, sh, sampler)
   M.drawCalls = M.drawCalls + 1
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   dx, dy = math.floor(dx + ctx.ox), math.floor(dy + ctx.oy)
   sx0, sy0 = sx0 or 0, sy0 or 0
   sw, sh = sw or img.w, sh or img.h
@@ -896,7 +896,7 @@ end
 function Image:drawScaled(x, y, s, sy)
   M.drawCalls = M.drawCalls + 1
   sy = sy or s
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   local nw, nh = math.floor(self.w * s), math.floor(self.h * sy)
   x, y = math.floor(x + ctx.ox), math.floor(y + ctx.oy)
   for yy = 0, nh - 1 do for xx = 0, nw - 1 do
@@ -910,7 +910,7 @@ end
 function Image:drawRotated(x, y, angle, s, sy)
   M.drawCalls = M.drawCalls + 1
   s = s or 1 sy = sy or s
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   local a = math.rad(angle)
   local ca, sa = math.cos(a), math.sin(a)
   local rad = math.ceil(math.sqrt(self.w * self.w * s * s + self.h * self.h * sy * sy) / 2) + 1
@@ -1024,7 +1024,7 @@ end
 function Font:getGlyph() return Image.new(8, 16) end
 local function drawGlyphs(font, text, x, y)
   local cx, cy = x, y
-  if not M.render and ctx.target == screen then return end
+  if not M.render and (ctx.target == screen or M.perfMode) then return end
   local color = ctx.color
   if ctx.drawMode == g.kDrawModeFillWhite or ctx.drawMode == "fillWhite" or ctx.drawMode == g.kDrawModeInverted then color = g.kColorWhite
   elseif ctx.drawMode == g.kDrawModeXOR or ctx.drawMode == g.kDrawModeNXOR then color = g.kColorXOR
