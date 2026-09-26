@@ -358,7 +358,11 @@ end
 function HomeScreen:drawTicker(dtMs)
 	gfx.setColor(gfx.kColorBlack)
 	gfx.fillRect(0, 227, 400, 13)
-	local text = "CAPTAIN: " .. U.upper(Captain.ticker(dtMs))
+	local raw = Captain.ticker(dtMs)
+	if raw ~= self.tickerRaw then
+		self.tickerRaw, self.tickerText = raw, "CAPTAIN: " .. U.upper(raw)
+	end
+	local text = self.tickerText
 	local w = Text.width(text)
 	if w < 390 then
 		Text.draw(text, 200, 229, { color = "white", align = "center" })

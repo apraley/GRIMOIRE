@@ -45,7 +45,7 @@ for _, name in ipairs({ "combo", "combos", "overall", "forSpool", "causes", "pro
 	Memo.wrap(Stats, name, "Stats." .. name)
 end
 for _, name in ipairs({ "list", "dueSoon" }) do Memo.wrap(MaintService, name, "Maint." .. name) end
-for _, name in ipairs({ "lowSpools", "totals", "daysUntilEmpty" }) do Memo.wrap(Filament, name, "Filament." .. name) end
+for _, name in ipairs({ "lowSpools", "totals", "daysUntilEmpty", "weeklyUsage" }) do Memo.wrap(Filament, name, "Filament." .. name) end
 for _, name in ipairs({ "backlog", "counts" }) do Memo.wrap(Queue, name, "Queue." .. name) end
 
 import "providers/provider"
@@ -260,7 +260,7 @@ function App.update()
 	if App.persistMs > 30000 then
 		App.persistMs = 0
 		local st = Printing.provider:getStatus().state
-		if st == "PRINTING" or st == "HEATING" or st == "PAUSED" then Store.markDirty() end
+		if st == "PRINTING" or st == "HEATING" or st == "PAUSED" then Store.saveLive() end
 		App.dailyChores(false)
 	end
 	Store.update(dt)

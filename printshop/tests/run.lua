@@ -1326,6 +1326,161 @@ test("review2: a second failure settles the first; retry keeps manual temps", fu
 	eq(q.nozzleTemp, before)
 end)
 
+test("perf: live print state goes to a side file, not the whole shop", function()
+	boot({})
+	Store.settings().demoSpeed = 1
+	App.saveAll()
+	local mainBefore = MOCK.files.printshop
+	eq(MOCK.files["printshop-live"], nil, "no live file yet")
+	eq(Printing.snapshot().state, "PRINTING")
+	frames(130, 250)                      -- ~32s of play: one persist tick
+	ok(MOCK.files["printshop-live"] ~= nil, "live state written")
+	eq(MOCK.files.printshop, mainBefore, "main document not rewritten by the timer")
+	-- On load, the newer copy of the provider state wins.
+	Store.data.meta.savedAt = 100
+	MOCK.files["printshop-live"] = json.encode({ savedAt = 200, providerState = { x = { a = 1 } } })
+	Store.loadLive()
+	eq(Store.data.providerState.x.a, 1, "newer live state wins")
+	MOCK.files["printshop-live"] = json.encode({ savedAt = 50, providerState = { y = { a = 2 } } })
+	Store.loadLive()
+	eq(Store.data.providerState.y, nil, "older live state ignored")
+	MOCK.files["printshop-live"] = "{broken"
+	Store.loadLive()                      -- garbage is ignored, not fatal
+	-- A reset drops the side file too.
+	Store.saveLive()
+	App.resetData(true)
+	eq(MOCK.files["printshop-live"], nil, "reset deletes the live file")
+	-- Read-only (newer-version) saves never write the side file.
+	Store.readOnly = true
+	MOCK.files["printshop-live"] = nil
+	eq(Store.saveLive(), false)
+	eq(MOCK.files["printshop-live"], nil)
+	Store.readOnly = false
+end)
+
+test("perf: text cache keeps the previous generation; snapshot is cached per frame", function()
+	boot({})
+	local max = Text.CACHE_MAX
+	Text.CACHE_MAX = 2
+	Text.cache, Text.oldCache, Text.cacheCount = {}, {}, 0
+	local a = Text.image("AAA")
+	Text.image("BBB")
+	Text.image("CCC")                     -- rolls the young cache over
+	eq(Text.image("AAA"), a, "still-visible string is not re-rendered")
+	Text.CACHE_MAX = max
+	-- Snapshot: same table within a frame, fresh after a command.
+	local s1 = Printing.snapshot()
+	eq(Printing.snapshot(), s1, "cached within the frame")
+	eq(s1.state, "PRINTING")
+	Printing.pause()
+	eq(Printing.snapshot().state, "PAUSED", "command invalidates the cache")
+	frames(1)
+	ok(Printing.snapshot() ~= s1, "next frame rebuilds")
+	-- No events: pollEvents hands back the shared empty list, which is read-only.
+	local e1 = Printing.provider:pollEvents()
+	eq(#e1, 0)
+	ok(not pcall(function() e1[1] = true end), "empty event list is read-only")
+end)
+
+local function formField(ed, label)
+	for _, f in ipairs(ed.form.allFields) do if f.label == label then return f end end
+	error("no field " .. label)
+end
+
+test("review3: spool editor never invents or loses filament; OK dryness sticks", function()
+	boot({})
+	local s = Store.spool("s1")
+	s.nominalGrams = 1000
+	Filament.setRemaining(s, 612, "setup")
+	-- Nominal dips below the remaining weight and comes back: no free grams.
+	Screens.push(SpoolEditScreen.new(s))
+	local ed = Screens.top()
+	formField(ed, "NOMINAL").set(600)
+	formField(ed, "NOMINAL").set(1000)
+	ed:save()
+	near(s.remainingGrams, 612, 0.5, "no filament invented")
+	-- Lowering nominal below what's left goes through the ledger.
+	local rows, used = #Store.data.consumption, s.usedGrams
+	Screens.push(SpoolEditScreen.new(s))
+	ed = Screens.top()
+	formField(ed, "NOMINAL").set(250)
+	ed:save()
+	near(s.remainingGrams, 250, 0.5)
+	eq(#Store.data.consumption, rows + 1, "clamp logged")
+	near(s.usedGrams, used + 362, 0.5, "grams accounted for")
+	-- A full spool stays full when its nominal is corrected.
+	local f = Store.spool("s2")
+	f.nominalGrams, f.remainingGrams = 1000, 1000
+	Screens.push(SpoolEditScreen.new(f))
+	ed = Screens.top()
+	formField(ed, "NOMINAL").set(1200)
+	ed:save()
+	near(f.remainingGrams, 1200, 0.5, "full stays full")
+	-- DAMP -> OK survives the daily ageing pass.
+	local d = Store.spool("s3")
+	d.material, d.dryness, d.openedAt, d.driedAt = "PETG", "DAMP", Clock.now() - 40 * U.DAY, 0
+	Screens.push(SpoolEditScreen.new(d))
+	ed = Screens.top()
+	formField(ed, "DRYNESS").set("OK")
+	ed:save()
+	App.dailyChores(true)
+	eq(d.dryness, "OK", "not re-aged from openedAt")
+	Screens.popToRoot()
+end)
+
+test("review3: damaged captain inbox items are repaired, not fatal", function()
+	boot({})
+	App.saveAll()
+	local doc = json.decode(MOCK.files.printshop)
+	doc.captain.inbox = { { kind = "complete" }, { priority = 3 }, "junk", { kind = "tip", data = 5 } }
+	doc.captain.counter = "x"
+	boot({ printshop = json.encode(doc) })
+	local box = Store.data.captain.inbox
+	eq(#box, 2, "kindless and non-table items dropped")
+	for _, it in ipairs(box) do
+		eq(type(it.priority), "number")
+		eq(type(it.data), "table")
+	end
+	eq(Store.data.captain.counter, 0)
+	local j = Queue.add({ name = "AFTER REPAIR", status = "PRINTING", spoolId = "s1", printerId = "p2" })
+	Printing.finish(j, "success", { grams = 5 })   -- emits into the inbox: must not crash
+	ok(#Store.data.captain.inbox >= 1)
+end)
+
+test("review3: weekly chart, calendar days, stable cursors, v4 hour meter", function()
+	boot({})
+	local _, bad = Stats.weekly(8)
+	local before = bad[8]
+	local j = Queue.add({ name = "CANCELLED", status = "PRINTING", spoolId = "s1", printerId = "p2" })
+	Printing.finish(j, "cancelled", { grams = 3 })
+	_, bad = Stats.weekly(8)
+	eq(bad[8], before, "cancels are not failures")
+	-- Calendar days: 23:00 yesterday is "yesterday" at 08:00.
+	eq(U.dayNumber(0), 10957, "2000-01-01")
+	eq(U.fmtRelDays(82800, 86400 + 28800), "yesterday")
+	eq(U.fmtRelDays(3600, 82800), "today")
+	-- Maintenance cursor stays on the same task when rows re-sort.
+	Screens.push(MaintScreen.new())
+	local ms = Screens.top()
+	frames(1)
+	ms.list:select(2)
+	local id = ms.rows[2].task.id
+	ms.rows[2].task.lastAt = 1           -- now the most overdue: sorts to the top
+	Store.markDirty()
+	frames(1)
+	eq(ms.rows[ms.list.sel].task.id, id, "cursor follows the task")
+	Screens.popToRoot()
+	-- v4 migration starts hour-based tasks from the printer's current meter.
+	local d = { printers = { { id = "p1", stats = { printSeconds = 200 * 3600 } } }, jobs = {},
+		maintenance = { tasks = { { id = "m1", printerId = "p1", interval = { kind = "hours", value = 50 }, last = 1000 } } } }
+	Schema.migrations[4](d)
+	near(d.maintenance.tasks[1].lastHours, 200, 0.01)
+	-- Disabled tasks aren't suggested.
+	for _, t in ipairs(Store.data.maintenance.tasks) do t.enabled = false end
+	Store.markDirty()
+	for _, sg in ipairs(Stats.suggestions()) do ok(sg.kind ~= "maint", "no disabled chore suggested") end
+end)
+
 ---------------------------------------------------------------------------
 
 print("")

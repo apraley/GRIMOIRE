@@ -120,11 +120,14 @@ function Printing.update(dtMs)
 end
 
 function Printing.drain()
+	Printing.invalidate()
 	local p = Printing.provider
 	for _, ev in ipairs(p:pollEvents()) do
 		Printing.handle(ev)
 	end
 	Printing.adoptExternalJob()
+	-- Again at the end: a handler may have read the snapshot mid-drain.
+	Printing.invalidate()
 end
 
 function Printing.log(text)
@@ -265,7 +268,26 @@ function Printing.pendingFailure()
 end
 
 -- Combined view of the active printer for the screens.
+-- Screens ask for a snapshot in both update() and draw(), and each one
+-- allocates a dozen tables. It is cached until the provider could have
+-- changed: every drain (once per frame, and after each command) and every
+-- data change (Memo revision) invalidates it.
+local snap = { rev = -1, provider = nil, value = nil }
+
+function Printing.invalidate()
+	snap.value = nil
+end
+
 function Printing.snapshot()
+	local p = Printing.provider
+	if snap.value and snap.rev == Memo.rev and snap.provider == p then return snap.value end
+	snap.value = Printing.buildSnapshot()
+	snap.rev = Memo.rev
+	snap.provider = p
+	return snap.value
+end
+
+function Printing.buildSnapshot()
 	local p = Printing.provider
 	local status = p:getStatus()
 	local pjob = p:getCurrentJob()

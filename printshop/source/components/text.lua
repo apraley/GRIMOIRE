@@ -2,9 +2,9 @@
 --
 -- Glyphs are rendered once into small images at startup. Whole strings are
 -- composed into cached images (one draw call per string per frame), which
--- keeps text cheap even on busy screens. The cache is cleared wholesale when
--- it grows past CACHE_MAX; typewriter text bypasses it by drawing the
--- in-progress line glyph by glyph.
+-- keeps text cheap even on busy screens. The cache has two generations of
+-- CACHE_MAX entries each, so memory stays bounded; typewriter text bypasses
+-- it by drawing the in-progress line glyph by glyph.
 
 local gfx <const> = playdate.graphics
 
@@ -12,6 +12,7 @@ Text = {
 	glyphs = {},
 	cache = {},
 	cacheCount = 0,
+	oldCache = {},       -- previous generation (see Text.image)
 	CACHE_MAX = 260,
 	ADV = 6,
 	H = 9,
@@ -72,11 +73,16 @@ end
 function Text.image(s)
 	local img = Text.cache[s]
 	if img == nil then
+		-- Two generations: when the young cache fills it becomes the old one,
+		-- so strings still on screen survive the rollover instead of all being
+		-- re-rendered in the same frame.
+		img = Text.oldCache[s]
+		if img == nil then img = render(s) end
 		if Text.cacheCount >= Text.CACHE_MAX then
+			Text.oldCache = Text.cache
 			Text.cache = {}
 			Text.cacheCount = 0
 		end
-		img = render(s)
 		Text.cache[s] = img
 		Text.cacheCount = Text.cacheCount + 1
 	end
@@ -109,9 +115,11 @@ function Text.draw(s, x, y, opts)
 	local w = Text.width(s) * scale
 	if align == "center" then x = x - w // 2 elseif align == "right" then x = x - w end
 	local img = Text.image(s)
-	withInk(color, function()
-		if scale == 1 then img:draw(x, y) else img:drawScaled(x, y, scale) end
-	end)
+	-- Inlined ink switch: this runs dozens of times a frame, so no closure.
+	local white = color == "white"
+	if white then gfx.setImageDrawMode(gfx.kDrawModeFillWhite) end
+	if scale == 1 then img:draw(x, y) else img:drawScaled(x, y, scale) end
+	if white then gfx.setImageDrawMode(gfx.kDrawModeCopy) end
 	return w
 end
 
@@ -158,9 +166,26 @@ function Text.wrap(s, maxChars)
 	return lines
 end
 
+-- Wrapping runs every frame for detail panels, so results are cached
+-- (bounded; the returned lines are shared and must not be modified).
+local wrapCache, wrapCount = {}, 0
+
+local function cachedWrap(s, maxChars)
+	s = tostring(s)
+	local key = maxChars .. "|" .. s
+	local lines = wrapCache[key]
+	if lines == nil then
+		if wrapCount >= 120 then wrapCache, wrapCount = {}, 0 end
+		lines = Text.wrap(s, maxChars)
+		wrapCache[key] = lines
+		wrapCount = wrapCount + 1
+	end
+	return lines
+end
+
 -- Draws wrapped text inside width w; returns number of lines drawn.
 function Text.drawWrapped(s, x, y, w, maxLines, opts)
-	local lines = Text.wrap(s, math.max(1, (w + 1) // Text.ADV))
+	local lines = cachedWrap(s, math.max(1, (w + 1) // Text.ADV))
 	local n = math.min(#lines, maxLines or #lines)
 	for i = 1, n do
 		local line = lines[i]

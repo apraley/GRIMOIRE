@@ -69,6 +69,12 @@ pending, new jobs can't start, so every failure gets a real cause.
   replaces duplicate ids, clears dangling references and makes sure there
   is at least one printer.
 
+Live printer state (the provider's progress and temperatures) changes all
+the time during a print. It is written every 30 seconds to a small side
+file, `printshop-live`, so the main document (hundreds of history and
+ledger rows) isn't re-encoded and rewritten mid-print. The main save still
+carries a copy. On load, whichever copy is newer wins.
+
 JSON caveats handled: lists are always dense arrays (`U.asList` rebuilds
 them), maps use string keys (calibration keys look like `p1|PLA|BAMBU`),
 nothing stored is a function or NaN, and ledgers and logs are capped so the
@@ -117,14 +123,20 @@ a coroutine).
 * The display is set to 30 fps, and every screen redraws each frame in
   immediate mode (no sprites).
 * Text uses a custom 5x9 font. Glyphs are built into images at startup,
-  and whole strings are cached as images (up to 260). So a line of text
-  costs one `image:draw` per frame. Typewriter text draws the in-progress
-  line glyph by glyph.
+  and whole strings are cached as images in two generations of up to 260
+  each, so strings still on screen survive a cache rollover. A line of
+  text costs one `image:draw` per frame, with no closure or table
+  allocated. Typewriter text draws the in-progress line glyph by glyph.
+  Wrapped paragraphs and formatted dates are cached as well.
 * The layer visualizer caches its image by (shape, size, printed rows).
 * Dither patterns are fixed 8x8 `setPattern` tables. They are the only
   greys used.
 * Heavier aggregates (Stats over history) are only computed on screens
-  that show them, and history is capped at 500 records.
+  that show them. They are memoized on the store revision (`lib/memo.lua`),
+  and history is capped at 500 records.
+* Per-frame garbage is kept low: `Printing.snapshot()` is cached until the
+  next provider drain or data change, `pollEvents()` returns a shared empty
+  list when nothing happened, and the demo AMS slots are cached.
 
 ## Adding things
 

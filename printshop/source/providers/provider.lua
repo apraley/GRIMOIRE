@@ -87,8 +87,11 @@ function PrinterProvider:emit(ev)
 	self.events[#self.events + 1] = ev
 end
 
+local NO_EVENTS <const> = setmetatable({}, { __newindex = function() error("NO_EVENTS is read-only") end })
+
 function PrinterProvider:pollEvents()
 	local e = self.events
+	if #e == 0 then return NO_EVENTS end   -- the common case: no garbage per frame
 	self.events = {}
 	return e
 end

@@ -214,12 +214,20 @@ function WatchScreen:drawTemps(snap, x, y, w)
 	-- History graph under the gauges.
 	local hist = Printing.provider.tempHistory
 	if #hist > 1 then
-		local noz, bed = {}, {}
-		for i, s in ipairs(hist) do noz[i], bed[i] = s[1], s[2] end
-		Draw.lineGraph(ix, y + 28, iw // 2 - 6, 14, noz, 0, 300)
-		Draw.lineGraph(ix + iw // 2 + 6, y + 28, iw // 2 - 6, 14, bed, 0, 120)
+		-- Split into two series only when a new sample arrives.
+		if self.graphLast ~= hist[#hist] or self.graphN ~= #hist then
+			local noz, bed = {}, {}
+			for i, s in ipairs(hist) do noz[i], bed[i] = s[1], s[2] end
+			self.graphNoz, self.graphBed = noz, bed
+			self.graphLast, self.graphN = hist[#hist], #hist
+		end
+		Draw.lineGraph(ix, y + 28, iw // 2 - 6, 14, self.graphNoz, 0, 300)
+		Draw.lineGraph(ix + iw // 2 + 6, y + 28, iw // 2 - 6, 14, self.graphBed, 0, 120)
 	end
 end
+
+-- Formatted log lines, keyed weakly by entry so trimmed entries drop out.
+local logLines = setmetatable({}, { __mode = "k" })
 
 function WatchScreen:drawLog(x, y, w, h)
 	Draw.window(x, y, w, h, { title = "EVENT LOG" })
@@ -232,9 +240,15 @@ function WatchScreen:drawLog(x, y, w, h)
 		Text.draw("NOTHING YET.", x + 10, ty)
 		return
 	end
+	local fitW = Text.fit(w - 60)
 	for i = first, last do
 		local e = log[i]
-		Text.draw(U.fmtClock(e.at) .. " " .. U.truncate(e.text, Text.fit(w - 60)), x + 10, ty)
+		local line = logLines[e]
+		if line == nil then
+			line = U.fmtClock(e.at) .. " " .. U.truncate(e.text, fitW)
+			logLines[e] = line
+		end
+		Text.draw(line, x + 10, ty)
 		ty = ty + 11
 	end
 end

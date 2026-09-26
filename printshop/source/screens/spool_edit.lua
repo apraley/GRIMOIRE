@@ -35,12 +35,19 @@ function SpoolEditScreen:buildForm()
 		{ label = "NOMINAL", kind = "number", min = 100, max = 5000, step = 50, unit = "g",
 			get = function() return d.nominalGrams end,
 			set = function(v)
-				local wasFull = d.remainingGrams >= d.nominalGrams
+				-- A full spool stays full when the nominal weight is corrected.
+				-- "Full" means full on the saved card, not in the draft: a
+				-- dip below the remaining weight must not add filament on
+				-- the way back up.
+				local orig = self.original
+				local wasFull = orig.remainingGrams >= orig.nominalGrams
 				d.nominalGrams = v
-				if wasFull or d.remainingGrams > v then d.remainingGrams = v end
+				-- Otherwise the weight is only capped for display and on save,
+				-- so a temporary dip doesn't lose grams either.
+				if wasFull then d.remainingGrams = v end
 			end },
 		{ label = "REMAINING", kind = "number", min = 0, max = 5000, step = 5, unit = "g",
-			get = function() return U.roundInt(d.remainingGrams) end,
+			get = function() return U.roundInt(math.min(d.remainingGrams, d.nominalGrams)) end,
 			set = function(v) d.remainingGrams = math.min(v, d.nominalGrams) end },
 		{ label = "COST", kind = "number", min = 0, max = 200, step = 0.5, dialFmt = "%.2f", unit = "$",
 			get = function() return d.cost end, set = function(v) d.cost = v end,
@@ -48,7 +55,9 @@ function SpoolEditScreen:buildForm()
 		{ label = "DRYNESS", kind = "enum", options = Enums.DRYNESS, get = function() return d.dryness end,
 			set = function(v)
 				d.dryness = v
-				if v == "DRY" then d.driedAt = Clock.now() end
+				-- DRY or OK restarts the ageing clock; otherwise the daily
+				-- chore would age the spool straight back from openedAt.
+				if v == "DRY" or v == "OK" then d.driedAt = Clock.now() end
 				if v ~= "SEALED" and d.openedAt == 0 then d.openedAt = Clock.now() end
 			end },
 		{ label = "LOCATION", kind = "enum", options = RolodexScreen.LOCATIONS, get = function() return d.location end,
@@ -85,10 +94,17 @@ function SpoolEditScreen:save()
 		local newRemaining = d.remainingGrams
 		d.remainingGrams = self.original.remainingGrams
 		U.mergeEdits(self.spool, self.original, d)
-		Spool.normalize(self.spool)
-		if newRemaining ~= self.original.remainingGrams then
-			Filament.setRemaining(self.spool, newRemaining, "Edited card")
+		-- Target weight: the user's weigh-in if they changed it, else what
+		-- the spool holds now, capped by a possibly lowered nominal. Any
+		-- change goes through the ledger before normalize could clamp it
+		-- away silently.
+		local target = self.spool.remainingGrams
+		if newRemaining ~= self.original.remainingGrams then target = newRemaining end
+		target = math.min(target, self.spool.nominalGrams)
+		if math.abs(target - self.spool.remainingGrams) >= 0.5 then
+			Filament.setRemaining(self.spool, target, "Edited card")
 		end
+		Spool.normalize(self.spool)
 		Store.markDirty()
 		Toast.show("SAVED", "check")
 	end

@@ -419,9 +419,11 @@ function Dialog:done()
 end
 
 -- Characters revealed per second based on settings.typeSpeed (1..3).
+local CPS <const> = { 30, 60, 120 }
+
 function Dialog:cps()
 	local s = self.speed or (Store.data and Store.settings().typeSpeed) or 2
-	return ({ 30, 60, 120 })[s] or 60
+	return CPS[s] or 60
 end
 
 function Dialog:advance()

@@ -64,7 +64,7 @@ function RolodexScreen:actions(s)
 					Toast.show(Spool.shortLabel(s) .. " " .. U.fmtGrams(v), "check")
 				end })
 		end },
-		{ label = "LOG USAGE", hint = "Filament used outside the queue.", action = function()
+		{ label = "LOG USAGE", hint = "Filament used outside the queue.", disabled = Spool.isEmpty(s), action = function()
 			Dial.open({ title = "LOG USAGE", label = "GRAMS USED", value = 10, min = 1,
 				max = math.max(1, U.roundInt(s.remainingGrams)), step = 1, unit = "g", degPerStep = 8,
 				onAccept = function(v)

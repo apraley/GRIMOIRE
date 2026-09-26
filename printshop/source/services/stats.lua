@@ -159,7 +159,7 @@ function Stats.weekly(weeks, now)
 		local age = (now - h.endedAt) // (7 * U.DAY)
 		if age >= 0 and age < weeks then
 			local i = weeks - age
-			if h.outcome == "success" then ok[i] = ok[i] + 1 else bad[i] = bad[i] + 1 end
+			if h.outcome == "success" then ok[i] = ok[i] + 1 elseif h.outcome == "failed" then bad[i] = bad[i] + 1 end
 		end
 	end)
 	return ok, bad
@@ -195,9 +195,9 @@ function Stats.suggestions(now)
 			end
 			if remedy.maint then
 				local task = U.find(Store.data.maintenance.tasks, function(t)
-					return t.kind == remedy.maint and t.printerId == h.printerId
+					return t.kind == remedy.maint and t.printerId == h.printerId and t.enabled
 				end)
-				local id = "maint:" .. remedy.maint
+				local id = "maint:" .. remedy.maint .. ":" .. tostring(h.printerId)
 				if task and not seen[id] and task.lastAt < h.endedAt then
 					seen[id] = true
 					out[#out + 1] = { kind = "maint", target = task.id, taskName = task.name, cause = h.cause,

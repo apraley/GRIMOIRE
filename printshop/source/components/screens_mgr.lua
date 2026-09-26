@@ -83,15 +83,20 @@ function Screens.draw()
 end
 
 -- Draws black pixels where the ramp pattern is black, leaving the rest.
+Screens.fadePatterns = {}
+
 function Screens.drawFade(idx)
 	local gfx = playdate.graphics
-	local p = Draw.P[Draw.RAMP[idx]]
 	-- Second 8 rows are an alpha mask: only the pattern's black pixels are
-	-- opaque, so the underlying frame shows through the white ones.
-	local mask = {}
-	for i = 1, 8 do mask[i] = 0xFF - p[i] end
-	local pat = { 0, 0, 0, 0, 0, 0, 0, 0 }
-	for i = 1, 8 do pat[8 + i] = mask[i] end
+	-- opaque, so the underlying frame shows through the white ones. Built
+	-- once per ramp step.
+	local pat = Screens.fadePatterns[idx]
+	if pat == nil then
+		local p = Draw.P[Draw.RAMP[idx]]
+		pat = { 0, 0, 0, 0, 0, 0, 0, 0 }
+		for i = 1, 8 do pat[8 + i] = 0xFF - p[i] end
+		Screens.fadePatterns[idx] = pat
+	end
 	gfx.setPattern(pat)
 	gfx.fillRect(0, 0, 400, 240)
 	gfx.setColor(gfx.kColorBlack)

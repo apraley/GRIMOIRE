@@ -88,6 +88,15 @@ Schema.migrations[4] = function(d)
 		t.interval = nil
 		if t.lastAt == nil and t.last ~= nil then t.lastAt = t.last end
 		t.last = nil
+		-- Older saves never recorded the hour meter at completion. Counting
+		-- from zero would charge the printer's whole lifetime against an
+		-- hour-based task, so start it from the current meter instead.
+		if t.lastHours == nil and (tonumber(t.intervalHours) or 0) > 0 and (tonumber(t.lastAt) or 0) > 0 then
+			local printers = U.asList(d.printers)
+			local p = U.findById(printers, t.printerId) or printers[1]
+			local secs = p and type(p.stats) == "table" and tonumber(p.stats.printSeconds) or 0
+			t.lastHours = secs / 3600
+		end
 	end
 	d.maintenance = { tasks = tasks, log = U.asList(m.log) }
 
@@ -272,7 +281,22 @@ function Schema.repair(d)
 	d.captain = type(d.captain) == "table" and d.captain or {}
 	U.defaults(d.captain, { counter = 0, seenIntro = false, lastTopics = {}, inbox = {}, lastDay = 0 })
 	d.captain.lastTopics = U.asList(d.captain.lastTopics)
-	d.captain.inbox = U.asList(d.captain.inbox)
+	d.captain.counter = U.int(d.captain.counter, 0)
+	d.captain.lastDay = U.int(d.captain.lastDay, 0)
+	d.captain.seenIntro = d.captain.seenIntro == true
+	-- Inbox items are sorted and templated by the Captain: anything without a
+	-- kind is unusable, and the rest get safe defaults.
+	local inbox = {}
+	for _, it in ipairs(U.asList(d.captain.inbox)) do
+		if type(it) == "table" and type(it.kind) == "string" and it.kind ~= "" then
+			it.priority = U.int(it.priority, 1)
+			it.at = U.int(it.at, 0)
+			it.mood = U.str(it.mood, "neutral")
+			if type(it.data) ~= "table" then it.data = {} end
+			inbox[#inbox + 1] = it
+		end
+	end
+	d.captain.inbox = inbox
 
 	local log = {}
 	for _, e in ipairs(U.asList(d.printLog)) do

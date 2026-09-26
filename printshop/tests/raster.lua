@@ -255,6 +255,7 @@ end
 function Raster.rebuildText()
 	Text.glyphs = {}
 	Text.cache = {}
+	Text.oldCache = {}
 	Text.cacheCount = 0
 	Text.init()
 	Sprites.partCache = {}

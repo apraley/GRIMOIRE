@@ -14,6 +14,11 @@ function StatsScreen.new()
 	return s
 end
 
+function StatsScreen.rowKey(r)
+	if r == nil then return nil end
+	return r.id or r.name or r.cause or (r.material and (r.material .. "|" .. tostring(r.manufacturer)))
+end
+
 function StatsScreen:refresh()
 	local p = StatsScreen.PAGES[self.page]
 	if p == "MATERIALS" then self.rows = Stats.combos()
@@ -26,9 +31,12 @@ end
 
 function StatsScreen:update()
 	-- Data changed underneath (a print finished, a menu action ran): refresh.
-	if self.rev ~= Memo.rev and true then
+	if self.rev ~= Memo.rev then
 		self.rev = Memo.rev
+		local key = self.rows and StatsScreen.rowKey(self.rows[self.list.sel])
 		self:refresh()
+		-- Pages re-sort as history grows; keep the cursor on the same row.
+		self.list:follow(self.rows, key, StatsScreen.rowKey)
 	end
 	self.list:update()
 	local h = Input.horizontal()
@@ -207,6 +215,15 @@ function ProjectScreen:refresh()
 	self.rows = rows
 	self.list:setCount(#rows)
 	self.agg = U.find(Stats.projects(), function(p) return p.name == self.name end)
+	-- Filament cost across the project's history (computed here, not per frame).
+	local cost = 0
+	for _, r in ipairs(rows) do
+		if r.kind == "hist" then
+			local sp = Store.spool(r.h.spoolId)
+			if sp then cost = cost + Filament.cost(sp, r.h.grams) end
+		end
+	end
+	self.cost = cost
 end
 
 function ProjectScreen:resume() self:refresh() end
@@ -239,14 +256,7 @@ function ProjectScreen:draw()
 	if a then
 		Text.draw(string.format("%d PRINTS  %d OK  %d FAILED  %s  %s", a.prints, a.successes, a.failures,
 			U.fmtGrams(a.grams), U.fmtHours(a.hours)), 16, 30)
-		local cost = 0
-		for _, r in ipairs(self.rows) do
-			if r.kind == "hist" then
-				local s = Store.spool(r.h.spoolId)
-				if s then cost = cost + Filament.cost(s, r.h.grams) end
-			end
-		end
-		Text.draw(string.format("%d OPEN JOBS  %d DONE  FILAMENT %s", a.open, a.done, U.fmtMoney(cost)), 16, 41)
+		Text.draw(string.format("%d OPEN JOBS  %d DONE  FILAMENT %s", a.open, a.done, U.fmtMoney(self.cost)), 16, 41)
 	end
 	Draw.window(4, 62, 392, 162)
 	if #self.rows == 0 then

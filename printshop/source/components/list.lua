@@ -33,6 +33,16 @@ function ScrollList:reveal()
 	self.scroll = U.clamp(self.scroll, 1, math.max(1, self.count - self.rows + 1))
 end
 
+-- Re-selects the row whose key matches `key` after the rows were rebuilt
+-- (lists re-sort when data changes; the cursor must stay on the same
+-- record, not the same position). keyOf(row) -> comparable key.
+function ScrollList:follow(rows, key, keyOf)
+	if key == nil then return end
+	for i, r in ipairs(rows) do
+		if keyOf(r) == key then self:select(i) return end
+	end
+end
+
 function ScrollList:select(i)
 	if self.count == 0 then return end
 	self.sel = U.clamp(i, 1, self.count)

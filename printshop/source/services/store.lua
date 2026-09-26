@@ -10,6 +10,7 @@
 
 Store = {
 	FILE = "printshop",
+	LIVE_FILE = "printshop-live",
 	AUTOSAVE_MS = 4000,
 	data = nil,
 	dirty = false,
@@ -59,6 +60,7 @@ function Store.load()
 	end
 
 	Store.data = Schema.repair(data)
+	Store.loadLive()
 	if Memo then Memo.bump() end
 	if Store.data.meta.createdAt == 0 then Store.data.meta.createdAt = Clock.now() end
 	Store.loadReport = report
@@ -90,6 +92,28 @@ function Store.save(force)
 	return true
 end
 
+-- Live printer state (provider progress, temps) changes constantly during a
+-- print. Rewriting the whole shop document for it would stall the frame, so
+-- it goes to a tiny side file instead. The main save still carries a copy;
+-- on load, whichever copy is newer wins.
+function Store.saveLive()
+	if Store.data == nil or Store.readOnly then return false end
+	if Store.beforeSave then Store.beforeSave() end
+	local doc = { savedAt = Clock.now(), providerState = Store.data.providerState }
+	local ok, err = pcall(playdate.datastore.write, doc, Store.LIVE_FILE)
+	if not ok then print("PRINT SHOP: live save failed: " .. tostring(err)) end
+	return ok
+end
+
+function Store.loadLive()
+	local live
+	pcall(function() live = playdate.datastore.read(Store.LIVE_FILE) end)
+	if type(live) ~= "table" or type(live.providerState) ~= "table" then return end
+	if U.int(live.savedAt, 0) > U.int(Store.data.meta.savedAt, 0) then
+		Store.data.providerState = live.providerState
+	end
+end
+
 function Store.update(dtMs)
 	if not Store.dirty or Store.readOnly then return end
 	Store.sinceSave = Store.sinceSave + dtMs
@@ -110,6 +134,7 @@ end
 function Store.reset(emptyShop)
 	Store.readOnly = false
 	pcall(playdate.datastore.delete, Store.FILE)
+	pcall(playdate.datastore.delete, Store.LIVE_FILE)
 	if emptyShop then
 		Store.data = Schema.repair(Seed.empty(Clock.now()))
 	else

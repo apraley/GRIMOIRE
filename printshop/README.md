@@ -143,8 +143,8 @@ lua5.4 tests/shots.lua && python3 tools/pbm2png.py   # screenshots into tests/ou
   an error.**
 * `tools/check_api.py` statically checks every `playdate.*` reference, and
   method calls on SDK objects, in the source.
-* `tests/run.lua` has 56 tests: persistence round trips, corrupt, partial
-  and newer saves, v1 → v4 migration, the finish-print ripple, runout and
+* `tests/run.lua` has 61 tests: persistence round trips, corrupt, partial
+  and newer saves, v1 → v5 migration, the finish-print ripple, runout and
   spool swap, deterministic demo failures, pending-failure logging through
   the UI, calibration re-profiling, maintenance crossings, Bambu mapping, a
   **bridge end-to-end test against the real Python bridge**, Captain variety
@@ -164,7 +164,7 @@ state.
 
 * **Autosave** at most every 4s while dirty, plus immediate saves after each
   print transaction and on terminate, sleep, lock and pause.
-* **Migrations** from v1 to v4 are real and tested. The original file
+* **Migrations** from v1 to v5 are real and tested. The original file
   is backed up as `printshop-v<N>` first.
 * **Repair on load:** every record is normalized, duplicate ids are
   reassigned, dangling spool and printer references are cleared, and the

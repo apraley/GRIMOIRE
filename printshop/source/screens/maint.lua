@@ -114,9 +114,12 @@ end
 
 function MaintScreen:update()
 	-- Data changed underneath (a print finished, a menu action ran): refresh.
-	if self.rev ~= Memo.rev and true then
+	if self.rev ~= Memo.rev then
 		self.rev = Memo.rev
+		local cur = self.rows and self.rows[self.list.sel]
 		self:refresh()
+		-- Rows re-sort by urgency; keep the cursor on the same task.
+		self.list:follow(self.rows, cur and cur.task.id, function(r) return r.task.id end)
 	end
 	self.list:update()
 	if Input.a() then

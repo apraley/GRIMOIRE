@@ -52,9 +52,14 @@ function Maint.status(t, printerHours, now)
 		st.frac = math.max(st.frac, used / t.intervalHours)
 	end
 	if t.intervalDays > 0 then
-		local days = 0
-		if t.lastAt > 0 then days = (now - t.lastAt) / U.DAY end
-		st.daysLeft = math.floor(t.intervalDays - days)
+		local days, calDays = 0, 0
+		if t.lastAt > 0 then
+			days = (now - t.lastAt) / U.DAY
+			calDays = U.daysBetween(t.lastAt, now)
+		end
+		-- Labels count calendar days ("DUE TODAY" means today); urgency
+		-- (frac) uses the exact elapsed time.
+		st.daysLeft = t.intervalDays - calDays
 		st.frac = math.max(st.frac, days / t.intervalDays)
 	end
 	if st.never and (t.intervalHours > 0 or t.intervalDays > 0) then

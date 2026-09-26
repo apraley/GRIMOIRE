@@ -77,7 +77,17 @@ end
 
 -- The A1 Mini's AMS lite has four slots; spools whose Rolodex location is
 -- "AMS LITE n" are loaded in slot n.
+-- Built from the Rolodex; cached until the shop data or loaded spool changes
+-- (the workshop scene asks for it every frame). Treat the result as read-only.
 function DemoProvider:getAMSOrSpoolState()
+	local c = self.amsCache
+	if c and c.rev == (Memo and Memo.rev) and c.spoolId == self.st.spoolId then return c.value end
+	local value = self:buildAMSState()
+	self.amsCache = { rev = Memo and Memo.rev, spoolId = self.st.spoolId, value = value }
+	return value
+end
+
+function DemoProvider:buildAMSState()
 	local slots = {}
 	if Store.data then
 		for _, s in ipairs(Store.data.spools) do
@@ -342,13 +352,16 @@ function DemoProvider:step(simSec)
 	end
 end
 
+local QUARTILES <const> = { 0.25, 0.5, 0.75 }
+
 function DemoProvider:layerLogs(before, after)
 	local st = self.st
 	if before < 2 and after >= 2 then
 		self:emit({ type = "log", text = "FIRST LAYER DOWN" })
 	end
 	local total = st.totalLayers
-	for _, q in ipairs({ 0.25, 0.5, 0.75 }) do
+	if after == before then return end
+	for _, q in ipairs(QUARTILES) do
 		local L = math.floor(total * q)
 		if before < L and after >= L then
 			self:emit({ type = "log", text = string.format("LAYER %d/%d (%d%%)", L, total, math.floor(q * 100)) })

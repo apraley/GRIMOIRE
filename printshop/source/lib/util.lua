@@ -319,22 +319,62 @@ function U.fmtDate(epoch)
 	return string.format("%02d %s %02d", t.day, MONTHS[t.month] or "???", t.year % 100)
 end
 
+-- Date formatting allocates a time table per call and runs every frame on
+-- several screens; results are cached per epoch (bounded).
+local dateCache, dateCount = {}, 0
+
+local function cachedDate(kind, epoch, fmt)
+	local key = kind .. epoch
+	local s = dateCache[key]
+	if s == nil then
+		if dateCount >= 200 then dateCache, dateCount = {}, 0 end
+		s = fmt(Clock.toLocal(epoch))
+		dateCache[key] = s
+		dateCount = dateCount + 1
+	end
+	return s
+end
+
+local function shortDate(t) return string.format("%s %d", MONTHS[t.month] or "???", t.day) end
+local function clockHM(t) return string.format("%02d:%02d", t.hour, t.minute) end
+
 function U.fmtShortDate(epoch)
 	if epoch == nil or epoch == 0 then return "--" end
-	local t = Clock.toLocal(epoch)
-	return string.format("%s %d", MONTHS[t.month] or "???", t.day)
+	return cachedDate("d", epoch, shortDate)
 end
 
 function U.fmtClock(epoch)
-	local t = Clock.toLocal(epoch)
-	return string.format("%02d:%02d", t.hour, t.minute)
+	return cachedDate("c", epoch, clockHM)
 end
 
 -- "today", "3d ago", "in 5d"
+-- Calendar day number of an epoch in local time (days since 1970-01-01 on
+-- the proleptic Gregorian calendar). Differences between two day numbers
+-- are calendar days, so 23:00 yesterday is "yesterday" at 08:00 today.
+local function civilDay(t)
+	local y, m, d = t.year, t.month, t.day
+	if m <= 2 then y = y - 1 end
+	local era = (y >= 0 and y or y - 399) // 400
+	local yoe = y - era * 400
+	local mp = (m + 9) % 12
+	local doy = (153 * mp + 2) // 5 + d - 1
+	local doe = yoe * 365 + yoe // 4 - yoe // 100 + doy
+	return era * 146097 + doe - 719468
+end
+
+function U.dayNumber(epoch)
+	return cachedDate("n", epoch, civilDay)
+end
+
+-- Calendar days from a to b (b later = positive).
+function U.daysBetween(a, b)
+	return U.dayNumber(b) - U.dayNumber(a)
+end
+
 function U.fmtRelDays(epoch, now)
 	if epoch == nil or epoch == 0 then return "never" end
 	now = now or Clock.now()
-	local d = (now - epoch) // U.DAY
+	local d = U.daysBetween(epoch, now)
 	if d == 0 then return "today" end
 	if d == 1 then return "yesterday" end
 	if d > 0 then return d .. "d ago" end
