@@ -98,9 +98,11 @@ Audio.sfx = {
   tick = function(pitch, vol) P(SQ, pitch or 1800, vol or 0.18, 0.01, 0.001, 0.015, 0, 0.01) end,
   click = function(vol) P(NO, 4000, vol or 0.35, 0.01, 0.001, 0.02, 0, 0.01) end,
   clack = function(vol) P(NO, 1500, vol or 0.45, 0.03, 0.001, 0.05, 0, 0.02) P(SQ, 180, (vol or 0.45) * 0.4, 0.03, 0.001, 0.04, 0, 0.02) end,
-  thunk = function(vol) P(SI, 90, vol or 0.7, 0.12, 0.001, 0.15, 0, 0.05) P(NO, 600, (vol or 0.7) * 0.5, 0.04, 0.001, 0.06, 0, 0.02) end,
+  -- low impacts carry an upper harmonic and a click: the Playdate speaker
+  -- barely reproduces anything below ~200 Hz
+  thunk = function(vol) P(SI, 90, vol or 0.7, 0.12, 0.001, 0.15, 0, 0.05) P(TR, 270, (vol or 0.7) * 0.45, 0.08, 0.001, 0.09, 0, 0.04) P(NO, 600, (vol or 0.7) * 0.5, 0.04, 0.001, 0.06, 0, 0.02) end,
   clank = function(vol) P(TR, 320, vol or 0.5, 0.2, 0.001, 0.25, 0, 0.1) P(TR, 473, (vol or 0.5) * 0.6, 0.2, 0.001, 0.2, 0, 0.1) P(NO, 3000, (vol or 0.5) * 0.4, 0.03) end,
-  thud = function(vol) P(SI, 60, vol or 0.8, 0.2, 0.001, 0.2, 0, 0.05) end,
+  thud = function(vol) P(SI, 60, vol or 0.8, 0.2, 0.001, 0.2, 0, 0.05) P(TR, 240, (vol or 0.8) * 0.4, 0.07, 0.001, 0.08, 0, 0.03) P(NO, 900, (vol or 0.8) * 0.25, 0.02, 0.001, 0.03, 0, 0.01) end,
   whoosh = function(vol) P(NO, 800, vol or 0.25, 0.25, 0.08, 0.2, 0, 0.1) end,
   splash = function(vol) P(NO, 1200, vol or 0.5, 0.35, 0.005, 0.4, 0, 0.2) P(SI, 140, (vol or 0.5) * 0.4, 0.1, 0.001, 0.12) end,
   creak = function(vol) P(SA, 70 + math.random() * 20, vol or 0.2, 0.3, 0.05, 0.3, 0.2, 0.1) end,
@@ -131,7 +133,7 @@ Audio.sfx = {
     for i = 1, 4 do P(TR, n[i], 0.35, 0.08, 0.001, 0.1, 0.2, 0.05, (i - 1) * 0.06) end
     P(SI, 1568, 0.3, 0.6, 0.001, 0.6, 0, 0.3, 0.26)
   end,
-  stamp = function() P(NO, 400, 0.8, 0.06, 0.001, 0.1, 0, 0.05) P(SI, 70, 0.8, 0.15, 0.001, 0.15, 0, 0.05) end,
+  stamp = function() P(NO, 400, 0.8, 0.06, 0.001, 0.1, 0, 0.05) P(SI, 70, 0.8, 0.15, 0.001, 0.15, 0, 0.05) P(TR, 210, 0.35, 0.08, 0.001, 0.08, 0, 0.03) end,
   type = function() P(NO, 2600 + math.random() * 800, 0.08, 0.008, 0.001, 0.01, 0, 0.005) end,
 }
 

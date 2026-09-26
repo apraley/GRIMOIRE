@@ -962,6 +962,7 @@ function Civ:substep()
   end
   if wars > 0 then
     Audio.play(Audio.SINE, 70, 0.35, 0.06, 0.001, 0.08, 0, 0.03)
+    Audio.play(Audio.TRIANGLE, 140, 0.18, 0.05, 0.001, 0.06, 0, 0.03)
     Audio.play(Audio.NOISE, 300, 0.1, 0.02, 0.001, 0.03, 0, 0.01)
   end
 

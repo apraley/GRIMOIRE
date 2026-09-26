@@ -441,12 +441,16 @@ function Well:updateScheduled(dt)
         elseif k == 2 then   -- splash reaches your ears
           Audio.sfx.splash(v)
           Audio.play(Audio.SINE, 70, v * 0.5, 0.2, 0.001, 0.3, 0, 0.1)
+          Audio.play(Audio.TRIANGLE, 140, v * 0.25, 0.12, 0.001, 0.18, 0, 0.06)
         elseif k == 3 then   -- whisper
           Audio.play(Audio.NOISE, 3200 + v * 900, 0.05, 0.9, 0.4, 0.5, 0.3, 0.4)
           Audio.play(Audio.NOISE, 2100 + v * 600, 0.04, 0.7, 0.3, 0.4, 0.2, 0.3, 0.5)
         elseif k == 4 then   -- heartbeat
           Audio.play(Audio.SINE, 48, 0.45, 0.08, 0.001, 0.12, 0, 0.05)
           Audio.play(Audio.SINE, 44, 0.35, 0.08, 0.001, 0.12, 0, 0.05, 0.22)
+          -- triangle octave: its overtones carry the beat on the tiny speaker
+          Audio.play(Audio.TRIANGLE, 96, 0.22, 0.06, 0.001, 0.08, 0, 0.04)
+          Audio.play(Audio.TRIANGLE, 88, 0.17, 0.06, 0.001, 0.08, 0, 0.04, 0.22)
         end
       end
     end

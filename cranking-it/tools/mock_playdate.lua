@@ -277,9 +277,19 @@ function S.setOutputsActive() end
 M.notes = 0
 S.synth = {}
 S.synth.__index = S.synth
+M.synths = {}
+M.noteLog = { n = 0, maxVol = 0, minHz = math.huge, maxHz = 0 }
 function S.synth.new(wave)
   assert(wave == nil or type(wave) == "number", "synth.new(waveform)")
-  return setmetatable({ playing = false, vol = 1 }, S.synth)
+  local sy = setmetatable({ playing = false, held = false, vol = 1 }, S.synth)
+  M.synths[#M.synths + 1] = sy
+  return sy
+end
+-- number of synths currently sustaining a note with no length (hums)
+function M.heldVoices()
+  local n = 0
+  for i = 1, #M.synths do if M.synths[i].held then n = n + 1 end end
+  return n
 end
 local function checkNum(v, name)
   if type(v) ~= "number" or v ~= v then error(name .. " must be a number, got " .. tostring(v), 3) end
@@ -291,11 +301,19 @@ function S.synth:playNote(pitch, vol, len, when)
   if when ~= nil then checkNum(when, "when") end
   M.notes = M.notes + 1
   self.playing = true
+  self.held = (len == nil)
+  local L = M.noteLog
+  L.n = L.n + 1
+  if vol and vol > L.maxVol then L.maxVol = vol end
+  if type(pitch) == "number" and pitch > 0 then
+    if pitch < L.minHz then L.minHz = pitch end
+    if pitch > L.maxHz then L.maxHz = pitch end
+  end
   return true
 end
 function S.synth:playMIDINote(n, vol, len, when) return self:playNote(440, vol, len, when) end
-function S.synth:noteOff() self.playing = false end
-function S.synth:stop() self.playing = false end
+function S.synth:noteOff() self.playing = false self.held = false end
+function S.synth:stop() self.playing = false self.held = false end
 function S.synth:isPlaying() return self.playing end
 function S.synth:setADSR(a, d, s, r) checkNum(a, "a") checkNum(d, "d") checkNum(s, "s") checkNum(r, "r") end
 function S.synth:setAttack(v) checkNum(v, "attack") end
