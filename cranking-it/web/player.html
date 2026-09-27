@@ -1,0 +1,476 @@
+<title>Cranking It</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #12151a;
+    --ink-2: #1b1f26;
+    --body: #e3b23c;
+    --body-shade: #b88a1f;
+    --body-edge: #8d6812;
+    --lcd-light: #b1aea4;
+    --lcd-dark: #2f2d27;
+    --brass: #d7b56d;
+    --text: #ebe5d6;
+    --muted: #9aa0a8;
+    --key: #262b33;
+  }
+  html, body { height: auto; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--ink);
+    color: var(--text);
+    font: 14px/1.5 "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+    padding-inline: 16px;
+    padding-block: 20px 32px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; display: grid; gap: 18px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 18px; }
+  h1 {
+    margin: 0;
+    font: 400 clamp(30px, 6vw, 46px)/1 "IM Fell English SC", Georgia, "Times New Roman", serif;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    text-wrap: balance;
+  }
+  h1 span { color: var(--brass); }
+  header p { margin: 0; color: var(--muted); font-size: 13px; }
+
+  /* the handheld */
+  .device {
+    position: relative;
+    background: linear-gradient(160deg, var(--body) 0%, var(--body) 60%, var(--body-shade) 100%);
+    border-radius: 28px;
+    padding: 5% 7% 4% 5%;
+    box-shadow: 0 2px 0 var(--body-edge) inset, 0 -3px 0 rgba(0,0,0,.18) inset, 0 30px 60px rgba(0,0,0,.45);
+    margin-right: 46px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .bezel {
+    background: #1d1c18;
+    border-radius: 10px;
+    padding: 3.2%;
+    position: relative;
+  }
+  #screen {
+    display: block;
+    width: 100%;
+    aspect-ratio: 400 / 240;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: var(--lcd-light);
+    border-radius: 2px;
+  }
+  .overlay {
+    position: absolute; inset: 3.2%;
+    display: grid; place-items: center;
+    background: rgba(18, 21, 26, .86);
+    color: var(--text);
+    text-align: center;
+    border-radius: 2px;
+    padding: 12px;
+  }
+  .overlay h2 { margin: 0 0 6px; font: 400 26px/1.1 "IM Fell English SC", Georgia, serif; color: var(--brass); }
+  .overlay p { margin: 0 0 12px; font-size: 13px; color: var(--text); max-width: 46ch; }
+  .overlay pre { text-align: left; white-space: pre-wrap; font-size: 11px; max-height: 100%; overflow: auto; color: #f3c9b6; margin: 0; }
+  .btn {
+    font: 600 13px/1 "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: .06em; text-transform: uppercase;
+    background: var(--brass); color: #1d1a12; border: 0; border-radius: 999px;
+    padding: 10px 18px; cursor: pointer;
+  }
+  .btn:focus-visible, button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+  /* system menu */
+  .menu { position: absolute; inset: 3.2%; display: grid; grid-template-columns: 1fr 1fr; border-radius: 2px; overflow: hidden; }
+  .menu canvas { width: 100%; height: 100%; image-rendering: pixelated; background: var(--lcd-light); }
+  .menu .list { background: var(--lcd-dark); color: var(--lcd-light); display: grid; align-content: start; gap: 2px; padding: 8% 6%; }
+  .menu .list button {
+    font: 600 clamp(11px, 1.8vw, 15px)/1.2 "IBM Plex Mono", monospace; text-align: left;
+    background: transparent; color: var(--lcd-light); border: 0; padding: 7px 8px; border-radius: 4px; cursor: pointer;
+    display: flex; justify-content: space-between; gap: 8px;
+  }
+  .menu .list button:hover, .menu .list button.sel { background: var(--lcd-light); color: var(--lcd-dark); }
+  .menu .hint { font-size: 11px; opacity: .7; margin-top: 8px; padding: 0 8px; }
+
+  /* controls on the body */
+  .controls { display: grid; grid-template-columns: auto 1fr auto; align-items: center; margin-top: 4.5%; gap: 12px; }
+  .dpad { position: relative; width: clamp(84px, 16vw, 128px); aspect-ratio: 1; }
+  .dpad button { position: absolute; background: var(--key); border: 0; cursor: pointer; }
+  .dpad .up { left: 33%; top: 0; width: 34%; height: 38%; border-radius: 6px 6px 0 0; }
+  .dpad .down { left: 33%; bottom: 0; width: 34%; height: 38%; border-radius: 0 0 6px 6px; }
+  .dpad .left { top: 33%; left: 0; height: 34%; width: 38%; border-radius: 6px 0 0 6px; }
+  .dpad .right { top: 33%; right: 0; height: 34%; width: 38%; border-radius: 0 6px 6px 0; }
+  .dpad .hub { position: absolute; left: 33%; top: 33%; width: 34%; height: 34%; background: var(--key); pointer-events: none; }
+  .middle { display: grid; justify-items: center; gap: 8px; }
+  .menu-btn {
+    font: 600 11px/1 "IBM Plex Mono", monospace; letter-spacing: .12em;
+    background: var(--body-shade); color: #3a2c08; border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer;
+  }
+  .ab { display: flex; gap: clamp(10px, 2.4vw, 20px); align-items: center; transform: rotate(-18deg); }
+  .ab button {
+    width: clamp(44px, 8vw, 64px); aspect-ratio: 1; border-radius: 50%;
+    background: var(--key); color: var(--body); border: 0; cursor: pointer;
+    font: 600 clamp(14px, 2.4vw, 19px)/1 "IBM Plex Mono", monospace;
+    box-shadow: 0 3px 0 rgba(0,0,0,.35);
+  }
+  .ab button:active, .dpad button:active, .ab button.down, .dpad button.down { filter: brightness(1.6); }
+
+  /* the crank */
+  .crank {
+    position: absolute; right: -46px; top: 30%;
+    width: 92px; height: 92px; cursor: grab; touch-action: none;
+  }
+  .crank:active { cursor: grabbing; }
+  .crank .hub {
+    position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px;
+    border-radius: 50%; background: var(--body-shade); box-shadow: 0 0 0 4px var(--body-edge);
+  }
+  .crank .arm {
+    position: absolute; left: 50%; top: 50%; width: 10px; height: 46px; margin-left: -5px; margin-top: -46px;
+    background: var(--body-shade); border-radius: 5px; transform-origin: 50% 100%;
+    box-shadow: 0 0 0 2px var(--body-edge);
+  }
+  .crank .knob {
+    position: absolute; left: 50%; top: -6px; width: 22px; height: 22px; margin-left: -11px;
+    border-radius: 50%; background: var(--body); box-shadow: 0 0 0 3px var(--body-edge), 0 4px 8px rgba(0,0,0,.4);
+  }
+  .crank.docked { opacity: .45; }
+  .crank.docked .arm { transform: rotate(180deg) !important; }
+
+  /* panel under the device */
+  .panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px 24px; }
+  .panel h3 { margin: 0 0 6px; font: 600 11px/1 "IBM Plex Mono", monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--brass); }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+  .keys dt { color: var(--text); }
+  .keys dd { margin: 0; color: var(--muted); }
+  kbd { font: 600 12px/1 "IBM Plex Mono", monospace; background: var(--key); border-radius: 4px; padding: 2px 6px; color: var(--text); }
+  .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+  .toggles button {
+    font: 600 12px/1 "IBM Plex Mono", monospace; background: var(--ink-2); color: var(--text);
+    border: 1px solid #333a44; border-radius: 999px; padding: 8px 12px; cursor: pointer;
+  }
+  .toggles button[aria-pressed="true"] { border-color: var(--brass); color: var(--brass); }
+  .note { color: var(--muted); font-size: 12px; margin: 8px 0 0; max-width: 70ch; }
+  .rate { font-variant-numeric: tabular-nums; color: #5a4309; font-size: 12px; white-space: nowrap; }
+
+  @media (max-width: 560px) {
+    .device { border-radius: 20px; margin-right: 34px; }
+    .crank { right: -34px; width: 68px; height: 68px; }
+    .crank .arm { height: 34px; margin-top: -34px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Cranking <span>It</span></h1>
+    <p>Thirteen crank-powered machines in a museum by the sea. A Playdate game, running in your browser.</p>
+  </header>
+
+  <div class="device" id="device">
+    <div class="bezel">
+      <canvas id="screen" width="400" height="240" aria-label="Game screen"></canvas>
+      <div class="overlay" id="overlay">
+        <div>
+          <h2 id="ov-title">Loading the museum</h2>
+          <p id="ov-text">Starting the Lua engine and the thirteen machines.</p>
+          <button class="btn" id="ov-btn" hidden>Turn the key</button>
+        </div>
+      </div>
+      <div class="menu" id="menu" hidden>
+        <canvas id="menu-img" width="400" height="240"></canvas>
+        <div class="list" id="menu-list"></div>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="dpad" aria-label="D-pad">
+        <button class="up" data-btn="4" aria-label="Up"></button>
+        <button class="down" data-btn="8" aria-label="Down"></button>
+        <button class="left" data-btn="1" aria-label="Left"></button>
+        <button class="right" data-btn="2" aria-label="Right"></button>
+        <div class="hub"></div>
+      </div>
+      <div class="middle">
+        <button class="menu-btn" id="menu-btn">MENU</button>
+        <span class="rate" id="rate">crank 0°/s</span>
+      </div>
+      <div class="ab">
+        <button data-btn="16" aria-label="B button">B</button>
+        <button data-btn="32" aria-label="A button">A</button>
+      </div>
+    </div>
+    <div class="crank" id="crank" title="Drag the handle around to crank">
+      <div class="arm" id="crank-arm"><div class="knob"></div></div>
+      <div class="hub"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <section>
+      <h3>Crank</h3>
+      <dl class="keys">
+        <dt>Drag</dt><dd>the handle around its hub</dd>
+        <dt>Scroll</dt><dd>over the handheld</dd>
+        <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>turn back / forward (hold <kbd>Shift</kbd> to turn fast)</dd>
+        <dt><kbd>C</kbd></dt><dd>dock or undock the crank</dd>
+      </dl>
+    </section>
+    <section>
+      <h3>Buttons</h3>
+      <dl class="keys">
+        <dt><kbd>←↑→↓</kbd></dt><dd>d-pad (or <kbd>WASD</kbd>)</dd>
+        <dt><kbd>X</kbd> <kbd>K</kbd></dt><dd>A button</dd>
+        <dt><kbd>Z</kbd> <kbd>J</kbd></dt><dd>B button</dd>
+        <dt><kbd>Esc</kbd> <kbd>M</kbd></dt><dd>system menu (restart, how to play, leave machine)</dd>
+      </dl>
+    </section>
+    <section>
+      <h3>Player</h3>
+      <div class="toggles">
+        <button id="t-sound" aria-pressed="true">Sound on</button>
+        <button id="t-dock" aria-pressed="false">Crank undocked</button>
+      </div>
+      <p class="note">Progress saves in this browser. Sound is synthesized live, the way the device does it.</p>
+    </section>
+  </div>
+</div>
+
+{{SCRIPTS}}
+<script>
+(function () {
+  "use strict";
+  const RT = window.CrankRuntime;
+  const PALETTE = { light: [177, 174, 164], dark: [47, 45, 39] };
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("screen");
+  const overlay = $("overlay");
+  let game = null, running = false, paused = false, crashed = false, started = false;
+
+  function showOverlay(title, text, button) {
+    $("ov-title").textContent = title;
+    $("ov-text").textContent = text;
+    const b = $("ov-btn");
+    b.hidden = !button;
+    if (button) b.textContent = button;
+    overlay.hidden = false;
+  }
+
+  function crash(err) {
+    crashed = true; running = false;
+    const msg = (err && (err.stack || err.message)) || String(err);
+    overlay.innerHTML = "";
+    const div = document.createElement("div");
+    div.innerHTML = '<h2>The machine jammed</h2><p>A Lua error stopped the game. Reload to try again.</p>';
+    const pre = document.createElement("pre");
+    pre.textContent = msg;
+    div.appendChild(pre);
+    overlay.appendChild(div);
+    overlay.hidden = false;
+    console.error(err);
+  }
+
+  // ---- frame loop -------------------------------------------------------
+  const STEP = 1000 / 30;
+  let last = 0, acc = 0, keyTurn = 0, rateAvg = 0;
+  function frame(now) {
+    if (!running) return;
+    requestAnimationFrame(frame);
+    if (!last) last = now;
+    acc += Math.min(200, now - last);
+    last = now;
+    let steps = 0;
+    while (acc >= STEP && steps < 3) {
+      acc -= STEP;
+      steps++;
+      if (paused) continue;
+      if (keyTurn) RT.input.crankAcc += keyTurn;
+      if (!RT.input.docked) RT.input.crankPos = ((RT.input.crankPos + RT.input.crankAcc) % 360 + 360) % 360;
+      else RT.input.crankAcc = 0;
+      rateAvg = rateAvg * 0.85 + RT.input.crankAcc * 30 * 0.15;
+      RT.beginFrame();
+      try { game.update(); } catch (e) { crash(e); return; }
+      if (RT.stackDepth()) RT.resetStack();
+      RT.endFrame();
+    }
+    if (steps) {
+      RT.present(canvas, PALETTE);
+      $("crank-arm").style.transform = "rotate(" + RT.input.crankPos + "deg)";
+      $("rate").textContent = "crank " + Math.round(rateAvg) + "°/s";
+    }
+  }
+
+  // ---- input ------------------------------------------------------------
+  const KEYS = {
+    ArrowLeft: 1, a: 1, A: 1, ArrowRight: 2, d: 2, D: 2, ArrowUp: 4, w: 4, W: 4, ArrowDown: 8, s: 8, S: 8,
+    z: 16, Z: 16, j: 16, J: 16, x: 32, X: 32, k: 32, K: 32,
+  };
+  const TURN = { q: -1, e: 1, "[": -1, "]": 1 };
+  const turning = new Set();
+  let shift = false;
+  const norm = (k) => (k.length === 1 ? k.toLowerCase() : k);
+  function updateKeyTurn() {
+    let dir = 0;
+    turning.forEach((k) => { dir += TURN[k]; });
+    keyTurn = Math.sign(dir) * (shift ? 30 : 12);
+  }
+  window.addEventListener("keydown", (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    shift = e.shiftKey;
+    if (menuOpen) { menuKey(e); return; }
+    const k = norm(e.key);
+    if (k === "Escape" || k === "m") { openMenu(); e.preventDefault(); return; }
+    if (k === "c") { setDocked(!RT.input.docked); return; }
+    if (KEYS[e.key]) { RT.press(KEYS[e.key]); e.preventDefault(); ensureStart(); return; }
+    if (TURN[k] !== undefined) { turning.add(k); updateKeyTurn(); e.preventDefault(); ensureStart(); }
+  });
+  window.addEventListener("keyup", (e) => {
+    shift = e.shiftKey;
+    if (KEYS[e.key]) RT.release(KEYS[e.key]);
+    turning.delete(norm(e.key));
+    updateKeyTurn();
+  });
+  window.addEventListener("blur", () => { turning.clear(); updateKeyTurn(); RT.input.held = 0; });
+
+  document.querySelectorAll("[data-btn]").forEach((b) => {
+    const bit = Number(b.dataset.btn);
+    const down = (e) => { e.preventDefault(); b.setPointerCapture && b.setPointerCapture(e.pointerId); RT.press(bit); b.classList.add("down"); ensureStart(); };
+    const up = () => { RT.release(bit); b.classList.remove("down"); };
+    b.addEventListener("pointerdown", down);
+    b.addEventListener("pointerup", up);
+    b.addEventListener("pointercancel", up);
+    b.addEventListener("lostpointercapture", up);
+  });
+
+  // crank: drag the handle around its hub
+  const crankEl = $("crank");
+  let dragAngle = null;
+  function angleAt(e) {
+    const r = crankEl.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    return Math.atan2(e.clientX - cx, -(e.clientY - cy)) * 180 / Math.PI;
+  }
+  crankEl.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    crankEl.setPointerCapture(e.pointerId);
+    if (RT.input.docked) setDocked(false);
+    dragAngle = angleAt(e);
+    ensureStart();
+  });
+  crankEl.addEventListener("pointermove", (e) => {
+    if (dragAngle === null) return;
+    const a = angleAt(e);
+    let d = a - dragAngle;
+    if (d > 180) d -= 360; else if (d < -180) d += 360;
+    dragAngle = a;
+    if (!RT.input.docked) RT.input.crankAcc += d;
+  });
+  const endDrag = () => { dragAngle = null; };
+  crankEl.addEventListener("pointerup", endDrag);
+  crankEl.addEventListener("pointercancel", endDrag);
+
+  // crank: scroll over the handheld
+  $("device").addEventListener("wheel", (e) => {
+    e.preventDefault();
+    if (RT.input.docked) return;
+    let d = e.deltaY;
+    if (e.deltaMode === 1) d *= 16;
+    RT.input.crankAcc += Math.max(-60, Math.min(60, d * 0.35));
+  }, { passive: false });
+
+  function setDocked(d) {
+    RT.input.docked = d;
+    crankEl.classList.toggle("docked", d);
+    const b = $("t-dock");
+    b.setAttribute("aria-pressed", String(d));
+    b.textContent = d ? "Crank docked" : "Crank undocked";
+  }
+  $("t-dock").addEventListener("click", () => setDocked(!RT.input.docked));
+  let soundOn = true;
+  $("t-sound").addEventListener("click", () => {
+    soundOn = !soundOn;
+    RT.setMuted(!soundOn);
+    const b = $("t-sound");
+    b.setAttribute("aria-pressed", String(soundOn));
+    b.textContent = soundOn ? "Sound on" : "Sound off";
+    if (soundOn) RT.startAudio();
+  });
+
+  // ---- system menu ----------------------------------------------------------
+  let menuOpen = false, menuSel = 0, menuRows = [];
+  function openMenu() {
+    if (!game || crashed || menuOpen) return;
+    try { game.callbacks.pause(); } catch (e) {}
+    const list = String(game.callbacks.menuList() || "").split("\n").filter(Boolean).map((l) => l.split("\t"));
+    menuRows = list.map((r, i) => ({ kind: r[0], title: r[1], value: r[2], i: i + 1 }));
+    menuRows.push({ kind: "resume", title: "back to game", i: 0 });
+    const el = $("menu-list");
+    el.innerHTML = "";
+    menuRows.forEach((row, idx) => {
+      const b = document.createElement("button");
+      const t = document.createElement("span"); t.textContent = row.title; b.appendChild(t);
+      if (row.kind === "check") { const v = document.createElement("span"); v.textContent = row.value === "on" ? "[x]" : "[ ]"; b.appendChild(v); }
+      b.addEventListener("click", () => chooseMenu(idx));
+      el.appendChild(b);
+    });
+    const hint = document.createElement("div"); hint.className = "hint"; hint.textContent = "↑↓ choose · A select · Esc back"; el.appendChild(hint);
+    menuSel = 0; highlightMenu();
+    if (RT.display.menuImage >= 0) RT.imageToCanvas(RT.display.menuImage, $("menu-img"), PALETTE);
+    else $("menu-img").getContext("2d").drawImage(canvas, 0, 0);
+    $("menu").hidden = false;
+    menuOpen = true; paused = true;
+  }
+  function highlightMenu() {
+    [...$("menu-list").querySelectorAll("button")].forEach((b, i) => b.classList.toggle("sel", i === menuSel));
+  }
+  function closeMenu() {
+    $("menu").hidden = true; menuOpen = false; paused = false;
+    RT.input.held = 0;
+    try { game.callbacks.resume(); } catch (e) {}
+  }
+  function chooseMenu(idx) {
+    const row = menuRows[idx];
+    closeMenu();
+    if (row && row.i > 0) { try { game.callbacks.menuActivate(row.i); } catch (e) { crash(e); } }
+  }
+  function menuKey(e) {
+    e.preventDefault();
+    if (e.key === "ArrowDown" || e.key === "s") { menuSel = (menuSel + 1) % menuRows.length; highlightMenu(); }
+    else if (e.key === "ArrowUp" || e.key === "w") { menuSel = (menuSel - 1 + menuRows.length) % menuRows.length; highlightMenu(); }
+    else if (e.key === "Enter" || e.key === "x" || e.key === "k" || e.key === " ") chooseMenu(menuSel);
+    else if (e.key === "Escape" || e.key === "m" || e.key === "z" || e.key === "j") closeMenu();
+  }
+  $("menu-btn").addEventListener("click", () => (menuOpen ? closeMenu() : openMenu()));
+
+  // ---- lifecycle ------------------------------------------------------------
+  function ensureStart() {
+    if (started || !game || crashed) return;
+    started = true;
+    overlay.hidden = true;
+    RT.startAudio();
+    if (!soundOn) RT.setMuted(true);
+    running = true; last = 0;
+    requestAnimationFrame(frame);
+  }
+  $("ov-btn").addEventListener("click", ensureStart);
+  document.addEventListener("visibilitychange", () => {
+    if (!game || crashed) return;
+    if (document.hidden) { try { game.callbacks.terminate(); } catch (e) {} }
+  });
+  window.addEventListener("pagehide", () => { if (game && !crashed) { try { game.callbacks.terminate(); } catch (e) {} } });
+
+  RT.boot({ wasmUri: window.CRANK_WASM }).then((g) => {
+    game = g;
+    window.__crankGame = g; // for automated smoke tests
+    // draw the first frame so the title shows behind the start card
+    RT.beginFrame();
+    try { game.update(); } catch (e) { crash(e); return; }
+    RT.endFrame();
+    RT.present(canvas, PALETTE);
+    showOverlay("The museum is open", "Turn the key, then crank the doors. Drag the handle on the right, scroll, or hold E.", "Turn the key");
+    $("ov-btn").focus({ preventScroll: true });
+  }).catch(crash);
+})();
+</script>

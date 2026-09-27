@@ -61,6 +61,28 @@ There are no image, font or sound assets: all art is drawn procedurally with
 the SDK's drawing API (with static art cached into images at first use), and
 all sound is synthesized with `playdate.sound.synth`.
 
+## Playing in a browser
+
+`web/` contains a browser player that runs the game's real Lua sources in
+[wasmoon](https://github.com/ceifa/wasmoon) (Lua 5.4 compiled to WebAssembly)
+against a JavaScript implementation of the Playdate API: a 1-bit
+framebuffer, the same drawing primitives, a pixel-font atlas, synthesized
+WebAudio sound, localStorage saves and a handheld shell with a draggable
+crank.
+
+```sh
+cd web
+npm install          # wasmoon (build-time only)
+python3 build.py     # -> web/dist/
+python3 -m http.server --directory dist 8000   # open http://localhost:8000
+```
+
+Crank by dragging the handle, scrolling over the handheld, or holding
+<kbd>Q</kbd>/<kbd>E</kbd> (<kbd>Shift</kbd> for fast). Arrows or WASD for the
+d-pad, <kbd>X</kbd>/<kbd>K</kbd> for A, <kbd>Z</kbd>/<kbd>J</kbd> for B,
+<kbd>Esc</kbd> for the system menu, <kbd>C</kbd> to dock the crank.
+`web/make_font.py` regenerates the font atlas from Pixelify Sans (SIL OFL).
+
 ## Project layout
 
 ```
