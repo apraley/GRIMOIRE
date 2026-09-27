@@ -1,0 +1,39 @@
+name: CRANKING IT .pdx
+
+on:
+  push:
+    paths:
+      - "cranking-it/source/**"
+      - ".github/workflows/cranking-it-pdx.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Playdate SDK
+        run: |
+          curl -fsSL -o sdk.tar.gz https://download.panic.com/playdate_sdk/Linux/PlaydateSDK-latest.tar.gz
+          mkdir sdk
+          tar -xzf sdk.tar.gz -C sdk --strip-components=1
+          echo "PLAYDATE_SDK_PATH=$PWD/sdk" >> "$GITHUB_ENV"
+          echo "$PWD/sdk/bin" >> "$GITHUB_PATH"
+
+      - name: Compile with pdc
+        working-directory: cranking-it
+        run: |
+          pdc --version || true
+          pdc source CrankingIt.pdx
+          ls -la CrankingIt.pdx
+
+      - name: Zip
+        working-directory: cranking-it
+        run: zip -r CrankingIt.pdx.zip CrankingIt.pdx
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CrankingIt.pdx
+          path: cranking-it/CrankingIt.pdx.zip
+          if-no-files-found: error
