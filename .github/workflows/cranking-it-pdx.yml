@@ -7,6 +7,9 @@ on:
       - ".github/workflows/cranking-it-pdx.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,3 +40,16 @@ jobs:
           name: CrankingIt.pdx
           path: cranking-it/CrankingIt.pdx.zip
           if-no-files-found: error
+
+      # Manual runs also commit the zip to the branch, so it can be fetched
+      # with plain git where artifact downloads are unavailable.
+      - name: Commit the zip (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          mkdir -p cranking-it/build
+          cp cranking-it/CrankingIt.pdx.zip cranking-it/build/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f cranking-it/build/CrankingIt.pdx.zip
+          git commit -m "CRANKING IT: built CrankingIt.pdx.zip" || exit 0
+          git push
