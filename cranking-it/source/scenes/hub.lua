@@ -478,7 +478,7 @@ function HubScene:draw()
   end
   if theme == "tide" then
     gfx.setColor(gfx.kColorWhite)
-    gfx.setDitherPattern(0.5, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer4x4)
     gfx.fillRect(0, FLOOR_Y - 10, 400, 14)
     gfx.setColor(gfx.kColorBlack)
     for x = 0, 400, 16 do

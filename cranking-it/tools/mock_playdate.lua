@@ -372,9 +372,6 @@ g.kImageUnflipped, g.kImageFlippedX, g.kImageFlippedY, g.kImageFlippedXY = 0, 1,
 g.kLineCapStyleButt, g.kLineCapStyleSquare, g.kLineCapStyleRound = 0, 1, 2
 g.kPolygonFillNonZero, g.kPolygonFillEvenOdd = 0, 1
 g.kStrokeCentered, g.kStrokeInside, g.kStrokeOutside = 0, 1, 2
-g.kDitherTypeNone, g.kDitherTypeDiagonalLine, g.kDitherTypeVerticalLine, g.kDitherTypeHorizontalLine = 0, 1, 2, 3
-g.kDitherTypeScreen, g.kDitherTypeBayer2x2, g.kDitherTypeBayer4x4, g.kDitherTypeBayer8x8 = 4, 5, 6, 7
-g.kDitherTypeFloydSteinberg, g.kDitherTypeBurkes, g.kDitherTypeAtkinson = 8, 9, 10
 g.kWrapClip, g.kWrapCharacter, g.kWrapWord = 16777216, 16777217, 16777218
 
 M.drawCalls = 0
@@ -382,6 +379,9 @@ M.render = os.getenv("MOCK_RENDER") == "1"
 
 -- image objects -------------------------------------------------------
 g.image = {}
+g.image.kDitherTypeNone, g.image.kDitherTypeDiagonalLine, g.image.kDitherTypeVerticalLine, g.image.kDitherTypeHorizontalLine = 0, 1, 2, 3
+g.image.kDitherTypeScreen, g.image.kDitherTypeBayer2x2, g.image.kDitherTypeBayer4x4, g.image.kDitherTypeBayer8x8 = 4, 5, 6, 7
+g.image.kDitherTypeFloydSteinberg, g.image.kDitherTypeBurkes, g.image.kDitherTypeAtkinson = 8, 9, 10
 local Image = g.image
 Image.__index = Image
 local function newBuffer(w, h, v)
@@ -488,8 +488,10 @@ function g.setPattern(p, x, y)
   for i = 1, #p do assert(type(p[i]) == "number", "pattern rows must be numbers") end
   ctx.pattern = p ctx.dither = nil
 end
-function g.setDitherPattern(alpha, dt)
+function g.setDitherPattern(alpha, ...)
   checkNum(alpha, "alpha")
+  -- the device errors on an explicit nil dither type
+  if select("#", ...) > 0 then checkNum((...), "ditherType") end
   ctx.dither = alpha ctx.pattern = nil
 end
 function g.setLineWidth(w) checkNum(w, "lineWidth") ctx.lineWidth = w end
@@ -903,6 +905,7 @@ end
 function Image:drawCentered(x, y, flip) self:draw(x - self.w // 2, y - self.h // 2, flip) end
 function Image:drawAnchored(x, y, ax, ay, flip) self:draw(x - math.floor(self.w * ax), y - math.floor(self.h * ay), flip) end
 function Image:drawFaded(x, y, alpha, dt, flip)
+  checkNum(dt, "ditherType")
   blit(self, x, y, flip, nil, nil, nil, nil, function(px, py)
     return (bayer8[(py % 8) + 1][(px % 8) + 1] + 0.5) / 64 < alpha
   end)

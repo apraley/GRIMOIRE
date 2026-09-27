@@ -360,9 +360,6 @@ g.kImageUnflipped, g.kImageFlippedX, g.kImageFlippedY, g.kImageFlippedXY = 0, 1,
 g.kLineCapStyleButt, g.kLineCapStyleSquare, g.kLineCapStyleRound = 0, 1, 2
 g.kPolygonFillNonZero, g.kPolygonFillEvenOdd = 0, 1
 g.kStrokeCentered, g.kStrokeInside, g.kStrokeOutside = 0, 1, 2
-g.kDitherTypeNone, g.kDitherTypeDiagonalLine, g.kDitherTypeVerticalLine, g.kDitherTypeHorizontalLine = 0, 1, 2, 3
-g.kDitherTypeScreen, g.kDitherTypeBayer2x2, g.kDitherTypeBayer4x4, g.kDitherTypeBayer8x8 = 4, 5, 6, 7
-g.kDitherTypeFloydSteinberg, g.kDitherTypeBurkes, g.kDitherTypeAtkinson = 8, 9, 10
 g.kWrapClip, g.kWrapCharacter, g.kWrapWord = 16777216, 16777217, 16777218
 
 local MODES = {
@@ -382,6 +379,9 @@ end
 
 -- images ----------------------------------------------------------------
 g.image = {}
+g.image.kDitherTypeNone, g.image.kDitherTypeDiagonalLine, g.image.kDitherTypeVerticalLine, g.image.kDitherTypeHorizontalLine = 0, 1, 2, 3
+g.image.kDitherTypeScreen, g.image.kDitherTypeBayer2x2, g.image.kDitherTypeBayer4x4, g.image.kDitherTypeBayer8x8 = 4, 5, 6, 7
+g.image.kDitherTypeFloydSteinberg, g.image.kDitherTypeBurkes, g.image.kDitherTypeAtkinson = 8, 9, 10
 local Image = g.image
 Image.__index = Image
 Image.__gc = function(self) if self.id and self.id > 0 then R_free(self.id) end end

@@ -1434,7 +1434,7 @@ function Fiche:drawLens()
   local img = Art.cached("fiche_lens", FILM_W, 204, function(w, h)
     gfx.setColor(gfx.kColorBlack)
     for i = 0, 5 do
-      gfx.setDitherPattern(0.85 - i * 0.14, gfx.kDitherTypeBayer4x4)
+      gfx.setDitherPattern(0.85 - i * 0.14, gfx.image.kDitherTypeBayer4x4)
       gfx.drawRect(i, i, w - 2 * i, h - 2 * i)
     end
     gfx.setColor(gfx.kColorBlack)
@@ -1491,7 +1491,7 @@ function Fiche:drawPanel()
   gfx.fillCircleAtPoint(cx, cy, 8 + floor(13 * (1 - frac)))
   local b = self.blur
   if b > 0.6 then
-    gfx.setDitherPattern(0.5, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer4x4)
     gfx.setColor(gfx.kColorWhite)
     gfx.fillCircleAtPoint(cx, cy, 20)
     gfx.setColor(gfx.kColorBlack)
@@ -1673,7 +1673,7 @@ function Fiche:draw()
     gfx.setColor(gfx.kColorWhite)
     local w = floor(FW * (1 - abs(t - 0.4) / 0.4))
     if w > 0 then
-      gfx.setDitherPattern(0.5, gfx.kDitherTypeBayer4x4)
+      gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer4x4)
       gfx.fillRect(FILM_W / 2 - w / 2, 30, w, 180)
     end
     gfx.setColor(gfx.kColorBlack)
@@ -1693,7 +1693,7 @@ function Fiche:draw()
     end
     if self.flicker > 0.05 then
       gfx.setColor(gfx.kColorBlack)
-      gfx.setDitherPattern(self.flicker, gfx.kDitherTypeBayer4x4)
+      gfx.setDitherPattern(self.flicker, gfx.image.kDitherTypeBayer4x4)
       gfx.fillRect(0, 18, FILM_W, 204)
       gfx.setColor(gfx.kColorBlack)
     end

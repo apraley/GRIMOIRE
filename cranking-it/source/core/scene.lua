@@ -96,7 +96,7 @@ local function drawCover(style, c)
       gfx.fillTriangle(w, y, w + 10, y + 6, w, y + 12)
     end
   else
-    gfx.setDitherPattern(1 - c, gfx.kDitherTypeBayer8x8)
+    gfx.setDitherPattern(1 - c, gfx.image.kDitherTypeBayer8x8)
     gfx.fillRect(0, 0, 400, 240)
   end
   gfx.setColor(gfx.kColorBlack)

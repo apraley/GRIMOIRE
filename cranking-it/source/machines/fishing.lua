@@ -200,9 +200,9 @@ function FishingLine:buildUnder()
   gfx.setColor(gfx.kColorWhite)
   for k = 0, 5 do
     local x0 = 70 + k * 58
-    gfx.setDitherPattern(0.6, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(0.6, gfx.image.kDitherTypeBayer4x4)
     gfx.setColor(gfx.kColorWhite)
-    gfx.setDitherPattern(0.55, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(0.55, gfx.image.kDitherTypeBayer4x4)
     gfx.fillTriangle(x0, 0, x0 + 14, 0, x0 - 18, 80)
   end
   -- the seabed polygon
@@ -1387,7 +1387,7 @@ local function drawFishGhost(x, y, len, face, eel)
   gfx.setColor(gfx.kColorWhite)
   gfx.fillEllipseInRect(x - len / 2, y - h / 2, len, h)
   gfx.setColor(gfx.kColorBlack)
-  gfx.setDitherPattern(0.5, gfx.kDitherTypeBayer4x4)
+  gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer4x4)
   gfx.drawEllipseInRect(x - len / 2, y - h / 2, len, h)
   local tx = x - face * len / 2
   gfx.drawLine(tx, y, tx - face * 4, y - 3)

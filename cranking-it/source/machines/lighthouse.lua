@@ -996,9 +996,9 @@ function L:drawBeams()
     -- the landward side of the lantern is screened
     if bb > 250 or bb < 110 then
       -- a pie slice of light: soft outer wedge, brighter core
-      gfx.setDitherPattern(0.6, gfx.kDitherTypeBayer4x4)
+      gfx.setDitherPattern(0.6, gfx.image.kDitherTypeBayer4x4)
       gfx.fillEllipseInRect(lx - R, ly - R, R * 2, R * 2, (b - 4.5) % 360, (b + 4.5) % 360)
-      gfx.setDitherPattern(0.25, gfx.kDitherTypeBayer4x4)
+      gfx.setDitherPattern(0.25, gfx.image.kDitherTypeBayer4x4)
       gfx.fillEllipseInRect(lx - R, ly - R, R * 2, R * 2, (b - 1.6) % 360, (b + 1.6) % 360)
       gfx.setColor(gfx.kColorWhite)
       local br = rad(b)
@@ -1014,7 +1014,7 @@ function L:drawRocks()
     local r = self.rocks[i]
     local ph = floor((t * 2 + i) % 3)
     gfx.setColor(gfx.kColorWhite)
-    gfx.setDitherPattern(0.5, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer4x4)
     gfx.drawCircleAtPoint(r.x, r.y, r.r + 3 + ph)
     gfx.setColor(gfx.kColorWhite)
     gfx.drawCircleAtPoint(r.x, r.y, r.r + 1)
@@ -1031,9 +1031,9 @@ function L:drawFog()
   for i = 1, MAXF do
     local f = self.fog[i]
     if f.dens > 0.03 then
-      gfx.setDitherPattern(1 - f.dens * 0.55, gfx.kDitherTypeBayer4x4)
+      gfx.setDitherPattern(1 - f.dens * 0.55, gfx.image.kDitherTypeBayer4x4)
       gfx.fillCircleAtPoint(f.x, f.y, f.r)
-      gfx.setDitherPattern(1 - f.dens * 0.5, gfx.kDitherTypeBayer4x4)
+      gfx.setDitherPattern(1 - f.dens * 0.5, gfx.image.kDitherTypeBayer4x4)
       gfx.fillCircleAtPoint(f.x + f.r * 0.3, f.y - f.r * 0.2, f.r * 0.6)
       gfx.fillCircleAtPoint(f.x - f.r * 0.4, f.y + f.r * 0.15, f.r * 0.5)
     end
@@ -1235,7 +1235,7 @@ function L:drawPanel()
   local vf = U.clamp((T - Pf) / T, -0.55, 0.55)
   local af = rad(vf * 140)
   gfx.setColor(gfx.kColorWhite)
-  gfx.setDitherPattern(0.5, gfx.kDitherTypeBayer4x4)
+  gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer4x4)
   gfx.setLineWidth(3)
   gfx.drawLine(mcx, mcy, mcx + sin(af) * (r - 6), mcy - cos(af) * (r - 6))
   gfx.setColor(gfx.kColorBlack)

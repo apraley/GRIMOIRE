@@ -17,7 +17,20 @@ funcs = set(re.findall(r"^function ([\w.]+)[.:](\w+)\(", stub, re.M))
 qualified = {f"{a}.{b}" for a, b in funcs}
 methods = {b for _, b in funcs}
 fields = set(re.findall(r"^---@field (\w+)", stub, re.M))
-consts = set(re.findall(r"\b(k[A-Z]\w+)\b", stub))
+# constants, qualified by the table that owns them (e.g.
+# playdate.graphics.image.kDitherTypeBayer4x4, not playdate.graphics.kDither...)
+consts = set()
+cls = None
+for line in stub.splitlines():
+    m = re.match(r"^---@class ([\w.]+)", line)
+    if m:
+        cls = m.group(1)
+        continue
+    m = re.match(r"^---@field (k[A-Z]\w+)", line)
+    if m and cls:
+        consts.add(f"{cls}.{m.group(1)}")
+    elif not line.startswith("---"):
+        cls = None
 
 ALIASES = {
     "gfx": "playdate.graphics",
@@ -52,7 +65,7 @@ for f in src_files:
             base = ALIASES.get(base, base)
             full = f"{base}.{name}"
             if name.startswith("k") and name[1:2].isupper():
-                if name not in consts:
+                if full not in consts:
                     problems.append(f"{f.relative_to(root)}:{lineno}: unknown constant {full}")
                 continue
             after = line[m.end():m.end() + 1]

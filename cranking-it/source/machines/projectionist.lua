@@ -857,7 +857,7 @@ local function drawSea(f, R, reel)
   gfx.fillCircleAtPoint(SX + 19, SY + 80, 10)
   if (f // 6) % 8 == 0 then
     gfx.setColor(gfx.kColorBlack)
-    gfx.setDitherPattern(0.5, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer4x4)
     gfx.fillTriangle(SX + 19, SY + 56, SX + W, SY + 40, SX + W, SY + 66)
     gfx.setColor(gfx.kColorBlack)
   end
@@ -982,7 +982,7 @@ local function drawStrange(f, R, reel)
   gfx.fillRect(SX + W / 2 - 8, SY + 10, 16, 10)
   if p > 0.4 then
     gfx.setColor(gfx.kColorWhite)
-    gfx.setDitherPattern(0.75, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(0.75, gfx.image.kDitherTypeBayer4x4)
     gfx.fillTriangle(SX + W / 2, SY + 15, SX + 10, SY + H, SX + W - 10, SY + H)
   end
   -- rows of heads, facing us; eyes open one by one
@@ -1048,7 +1048,7 @@ function Proj:drawScreen()
       gfx.drawLine(x, SY, x + (k % 3) - 1, SY + SH)
     end
     if fr % 2 == 0 then
-      gfx.setDitherPattern(0.3, gfx.kDitherTypeBayer4x4)
+      gfx.setDitherPattern(0.3, gfx.image.kDitherTypeBayer4x4)
       gfx.fillRect(SX, SY, SW, SH)
     end
     gfx.setColor(gfx.kColorBlack)
@@ -1108,7 +1108,7 @@ function Proj:drawScreen()
     shade = max(shade, (1 - self.heat[self.proj]) * 0.85)
     if shade > 0.05 then
       gfx.setColor(gfx.kColorBlack)
-      gfx.setDitherPattern(shade, gfx.kDitherTypeBayer4x4)
+      gfx.setDitherPattern(shade, gfx.image.kDitherTypeBayer4x4)
       gfx.fillRect(SX, SY, SW, SH)
     end
   end

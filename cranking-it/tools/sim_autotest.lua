@@ -58,7 +58,16 @@ local failedStep = nil
 local function guarded(name, fn)
   step = name
   failedStep = nil
-  fn()
+  -- pcall is yieldable in Lua 5.4, so errors raised inside the script
+  -- (e.g. while a machine is being set up by Scene.go) are caught per step
+  local ok, err = pcall(fn)
+  if not ok then
+    errors = errors + 1
+    say("ERROR in " .. name .. ": " .. tostring(err))
+    cur, crank = 0, 0
+    pcall(Scene.go, HubScene, {}, "cut")
+    return false
+  end
   if failedStep == name then return false end
   return true
 end

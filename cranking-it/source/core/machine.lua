@@ -308,7 +308,7 @@ function PlayScene:draw()
   if m.coach and not m.finished then m.coach:draw() end
   if self.params.mods and self.params.mods.fog then
     gfx.setColor(gfx.kColorWhite)
-    gfx.setDitherPattern(0.45, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(0.45, gfx.image.kDitherTypeBayer4x4)
     gfx.fillRect(0, 0, 400, 240)
     gfx.setColor(gfx.kColorBlack)
   end

@@ -1259,7 +1259,7 @@ local ZA <const> = { 0, 0.1, 0.25, 0.47, 0.72 }
 local function darkRect(x0, x1, y, h, a)
   if x1 <= x0 or a <= 0.02 then return end
   gfx.setColor(gfx.kColorBlack)
-  if a < 0.98 then gfx.setDitherPattern(a, gfx.kDitherTypeBayer4x4) end
+  if a < 0.98 then gfx.setDitherPattern(a, gfx.image.kDitherTypeBayer4x4) end
   gfx.fillRect(x0, y, x1 - x0, h)
 end
 
@@ -1513,7 +1513,7 @@ function Well:drawShaft()
   if self.echoFlash > 0 and not self.inWater then
     gfx.setColor(gfx.kColorWhite)
     local rr = floor(R * 0.8 + (1 - self.echoFlash) * 14)
-    gfx.setDitherPattern(1 - self.echoFlash * 0.7, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(1 - self.echoFlash * 0.7, gfx.image.kDitherTypeBayer4x4)
     gfx.drawEllipseInRect(RX - rr, lampY + R * 0.6, rr * 2, 8)
   end
   -- depth rule on the right edge

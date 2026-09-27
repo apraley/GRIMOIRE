@@ -2019,7 +2019,7 @@ function Civ:drawMap()
   -- a dark age dims the world
   if self.dark > 0 then
     gfx.setColor(gfx.kColorBlack)
-    gfx.setDitherPattern(0.3, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(0.3, gfx.image.kDitherTypeBayer4x4)
     gfx.fillRect(MX + 1, MY + 1, MW - 2, MH - 2)
     gfx.setColor(gfx.kColorBlack)
   end

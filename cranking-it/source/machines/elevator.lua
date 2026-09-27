@@ -1065,7 +1065,7 @@ local function drawFigure(kind, x, fy, t, stumble, mood)
   gfx.setColor(gfx.kColorBlack)
   if kind == GHOST then
     local bob = floor(sin(t * 3 + x) * 2)
-    gfx.setDitherPattern(0.5, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer4x4)
     gfx.fillEllipseInRect(x - 6, fy - 26 + bob, 12, 12)
     gfx.fillRect(x - 6, fy - 20 + bob, 12, 14)
     gfx.setColor(gfx.kColorBlack)

@@ -561,7 +561,7 @@ local function drawLights(self, W, t, evb)
     local s, c = sin(th), cos(th)
     if abs(s) > 0.12 then
       gfx.setColor(gfx.kColorWhite)
-      gfx.setDitherPattern(0.5, gfx.kDitherTypeBayer4x4)
+      gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer4x4)
       local ex = 70 + s * 300
       T(70, 15, ex, 15 - 26 * abs(s), ex, 15 + 30 * abs(s))
     end
@@ -940,7 +940,7 @@ function Cam:renderShot(rec, img, tmp, size)
   local dim = U.clamp((12.5 - evb) / 11, 0, 0.45)
   if dim > 0.02 then
     gfx.setColor(gfx.kColorBlack)
-    gfx.setDitherPattern(dim, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(dim, gfx.image.kDitherTypeBayer4x4)
     gfx.fillRect(0, 0, size, size)
     gfx.setColor(gfx.kColorBlack)
   end
@@ -957,7 +957,7 @@ function Cam:renderShot(rec, img, tmp, size)
     local jx = rec.shake * s * 0.7
     for k = 1, n - 1 do
       local f = k / (n - 1)
-      tmp:drawFaded(-cdx * f + jx * (k % 2 == 0 and 1 or -1) * f, -cdy * f + jx * 0.5 * f, 0.5, gfx.kDitherTypeBayer4x4)
+      tmp:drawFaded(-cdx * f + jx * (k % 2 == 0 and 1 or -1) * f, -cdy * f + jx * 0.5 * f, 0.5, gfx.image.kDitherTypeBayer4x4)
     end
   end
   -- moving subjects: drawn at the start, smeared along their motion
@@ -999,12 +999,12 @@ function Cam:renderShot(rec, img, tmp, size)
   if e > self.tolE then
     local c = U.clamp((e - 0.4) / 3, 0, 0.94)
     gfx.setColor(gfx.kColorWhite)
-    gfx.setDitherPattern(1 - c, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(1 - c, gfx.image.kDitherTypeBayer4x4)
     gfx.fillRect(0, 0, size, size)
   elseif e < -self.tolE then
     local c = U.clamp((-e - 0.4) / 3, 0, 0.94)
     gfx.setColor(gfx.kColorBlack)
-    gfx.setDitherPattern(c, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(c, gfx.image.kDitherTypeBayer4x4)
     gfx.fillRect(0, 0, size, size)
   end
   -- static discharge from a racing rewind: branching sparks
@@ -1254,7 +1254,7 @@ function Cam:buildSheet()
           x0, x1 = max(x0, 4), min(x1, 4 + 4 * UNIT)
           if x1 > x0 then
             gfx.setClipRect(floor(x0), 4 + s * 66, floor(x1 - x0 + 1), THUMB)
-            self.thumbs[i]:drawFaded(floor(4 + (pi - FW / 2 - base) * UNIT + 0.5), 4 + s * 66, 0.5, gfx.kDitherTypeBayer4x4)
+            self.thumbs[i]:drawFaded(floor(4 + (pi - FW / 2 - base) * UNIT + 0.5), 4 + s * 66, 0.5, gfx.image.kDitherTypeBayer4x4)
           end
         end
       end
@@ -1305,7 +1305,7 @@ function Cam:renderLoupe(i)
       gfx.pushContext(self.loupeImg)
       local x0, x1 = max(0, dx), min(LOUPE, dx + LOUPE)
       gfx.setClipRect(floor(x0), 0, floor(x1 - x0), LOUPE)
-      other:drawFaded(floor(dx), 0, 0.5, gfx.kDitherTypeBayer4x4)
+      other:drawFaded(floor(dx), 0, 0.5, gfx.image.kDitherTypeBayer4x4)
       gfx.clearClipRect()
       gfx.popContext()
     end
@@ -1582,7 +1582,7 @@ function Cam:drawViewfinder()
   local dk = U.clamp((13.5 - evb) / 9, 0, 0.6)
   if dk > 0.02 then
     gfx.setColor(gfx.kColorBlack)
-    gfx.setDitherPattern(dk, gfx.kDitherTypeBayer4x4)
+    gfx.setDitherPattern(dk, gfx.image.kDitherTypeBayer4x4)
     gfx.fillRect(VX, VY, VS, VS)
   end
   drawLights(self, W, wt, evb)
@@ -1837,7 +1837,7 @@ function Cam:drawSheet()
   if st < 1.2 then
     gfx.setColor(gfx.kColorBlack)
     gfx.fillRect(0, 20, 258, 200)
-    self.sheetImg:drawFaded(0, 20, st / 1.2, gfx.kDitherTypeBayer4x4)
+    self.sheetImg:drawFaded(0, 20, st / 1.2, gfx.image.kDitherTypeBayer4x4)
   else
     self.sheetImg:draw(0, 20)
   end

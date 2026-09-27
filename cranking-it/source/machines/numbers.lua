@@ -1005,7 +1005,7 @@ function Num:drawScale()
   end
   -- needle with a glow
   local nx = floor(scaleX(self.freq))
-  gfx.setDitherPattern(0.5, gfx.kDitherTypeBayer4x4)
+  gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer4x4)
   gfx.fillRect(nx - 3, y0 + 4, 7, 30)
   gfx.setColor(gfx.kColorWhite)
   gfx.fillRect(nx - 1, y0 + 3, 2, 32)
@@ -1048,7 +1048,7 @@ function Num:drawScope()
   gfx.setColor(gfx.kColorWhite)
   gfx.drawRoundRect(x0 + 2, y0 + 2, w - 4, h - 4, 7)
   -- graticule
-  gfx.setDitherPattern(0.75, gfx.kDitherTypeBayer4x4)
+  gfx.setDitherPattern(0.75, gfx.image.kDitherTypeBayer4x4)
   for i = 1, 3 do gfx.drawLine(x0 + i * w / 4, y0 + 6, x0 + i * w / 4, y0 + h - 6) end
   gfx.drawLine(x0 + 6, y0 + h / 2, x0 + w - 6, y0 + h / 2)
   gfx.setColor(gfx.kColorWhite)
