@@ -45,6 +45,12 @@ function Social.onRumor(n, r)
     elseif k == "promoted" then p.t = p.t + 3
     elseif k == "blabbed" then p.t = p.t - 6
     elseif k == "fight" then p.fe = p.fe + 4
+    elseif k == "turf" then
+      if n.age < 20 then p.f = p.f + 4; p.fe = p.fe + 3; p.a = p.a + 1 else p.t = p.t - 1 end
+    elseif k == "turfloss" then
+      if n.age < 20 then p.f = p.f - 3 end
+    elseif k == "diss" then
+      if p.f < 40 then p.f = p.f - 2 end
     end
     p.heard = true
     Social.clampP(n)

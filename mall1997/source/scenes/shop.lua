@@ -53,6 +53,7 @@ function Shop.counter(s)
   if s.type == "restaurant" then
     add("Order food", function() Shop.menuBuy(s, Econ.rack(s, 1)) end)
   end
+  if s.type == "pawn" then add("Sell something", function() Shop.pawnSell(s, n) end) end
   add("Look around", function()
     local lines = { s.name .. " — " .. MallGen.TYPE_LABEL[s.type] .. ". " .. s.flavor }
     if s.sale > 0 then lines[#lines + 1] = "A sign says " .. s.sale .. "% OFF EVERYTHING." end
@@ -62,6 +63,23 @@ function Shop.counter(s)
     Say(lines)
   end)
   Choose(s.name:upper(), opts, function(i) acts[i]() end, {})
+end
+
+-- the pawn counter: pick something from the bag, hear the offer, take it or leave it
+function Shop.pawnSell(s, n)
+  local items = Pawn.sellable()
+  local who = { npc = n, name = n and n.first }
+  if #items == 0 then Say("\"You got nothing I want. Come back with something.\"", who) return end
+  local labels = {}
+  for i, it in ipairs(items) do labels[i] = Econ.itemLabel(it) .. "  " .. U.money((Pawn.offer(it))) end
+  Choose("SELL", labels, function(i)
+    local it = items[i]
+    local cash = Pawn.offer(it)
+    Confirm("Sell " .. it.n .. " for " .. U.money(cash) .. "?", function()
+      Sfx.ok()
+      Say(Pawn.sell(it, s), { npc = n, name = n and n.first, after = function() Shop.pawnSell(s, n) end })
+    end, nil, who)
+  end, { w = 390, x = 5 })
 end
 
 function Shop.menuBuy(s, items)

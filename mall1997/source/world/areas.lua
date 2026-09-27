@@ -280,7 +280,7 @@ local RACK_CATS = {
   music = "album", video = "vhs", clothing = "clothes", shoes = "clothes", books = "book",
   toys = "toy", games = "game", jewelry = "jewelry", sporting = "sport", gifts = "gift",
   electronics = "electronic", photo = "photo", weird = "weird", services = "service",
-  department = "clothes", salon = "salon", restaurant = "food",
+  department = "clothes", salon = "salon", restaurant = "food", pawn = "pawn",
 }
 Areas.RACK_CATS = RACK_CATS
 

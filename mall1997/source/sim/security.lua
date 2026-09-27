@@ -223,6 +223,7 @@ function Security.getaway(s)
   local heat = p.heat or { seen = {} }
   for _, it in ipairs(p.hot or {}) do
     it.tagged = nil
+    if it.pawnId then Pawn.bought(it); it.pawnId = nil end
     Econ.give(it)
     p.stats.stolen = p.stats.stolen + 1
     s.theftDay = (s.theftDay or 0) + it.v
@@ -242,6 +243,8 @@ function Security.getaway(s)
     Rumors.add("shoplift", -1, p.name .. " pocketed something at " .. s.name, 6, seeds, { store = s.id })
   end
   Timeline.add("player", p.name .. " walked out of " .. s.name .. " with something they didn't pay for.", 1)
+  -- the kids who hang around outside respect nerve
+  Turf.gain(Turf.zoneOf(Areas.storeArea(s)), 2, "theft")
   p.hot = {}
   p.heat = nil
 end
@@ -278,6 +281,7 @@ function Security.caughtPlayer(s, how)
   if out.mallBan > 0 then p.mallBan = day + out.mallBan end
   if out.parents then p.grounded = math.max(p.grounded or 0, day + 5) end
   s.suspicion = 100
+  Turf.onCaught()
   local kind = out.mallBan > 0 and "banned" or "caught"
   Rumors.add(kind, -1, p.name .. " got caught stealing at " .. s.name, 8, seeds, { store = s.id })
   Timeline.add("crime", p.name .. " got caught shoplifting at " .. s.name ..

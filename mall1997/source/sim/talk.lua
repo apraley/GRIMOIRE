@@ -137,6 +137,9 @@ function Talk.options(n)
   if (n.rival or (n.ask and n.age < 25)) and n.act ~= "work" and n.loc == "s" .. W.mall.arcade then
     opts[#opts + 1] = { id = "challenge", label = "Challenge (10 tokens)" }
   end
+  if n.turfBoss and Turf.zone(n.turfBoss) and Turf.zone(n.turfBoss).boss == n.id and Turf.zone(n.turfBoss).owner == "them" then
+    opts[#opts + 1] = { id = "callout", label = "Call them out" }
+  end
   opts[#opts + 1] = { id = "insult", label = "Insult" }
   opts[#opts + 1] = { id = "bye", label = "Bye" }
   return opts

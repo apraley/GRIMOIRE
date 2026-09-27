@@ -505,7 +505,9 @@ end
 function Stores.findWorker(r, manager)
   local cands = {}
   for _, n in ipairs(W.npcs) do
-    if n.status == "active" and not n.job and n.age >= (manager and 22 or 16) and n.age < 66 and n.role ~= "family" then
+    -- (the kids who run a turf are too busy running it)
+    if n.status == "active" and not n.job and n.age >= (manager and 22 or 16) and n.age < 66 and n.role ~= "family"
+      and not n.turfBoss then
       for _, w in ipairs(n.wants) do if w.k == "job" then cands[#cands + 1] = n break end end
     end
   end

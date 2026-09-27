@@ -29,6 +29,7 @@ function ArcadeSim.submit(game, who, score)
       Timeline.add("arcade", W.p.name .. " set the " .. gname .. " record: " .. score .. ".", 3)
       Rumors.add("record", -1, W.p.name .. " set a record on " .. gname, 6, ArcadeSim.witnesses())
       W.p.fame = W.p.fame + 5
+      Turf.gain("arcade", 10, "record")
     else
       local n = W.npcs[who]
       Timeline.add("arcade", NPCGen.name(n) .. " set a new " .. gname .. " record: " .. score .. ".", 2)

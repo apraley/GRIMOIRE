@@ -11,6 +11,15 @@ local function roleLine(n)
   if n.job == "sec" then return n.title == "chief" and "Chief of Security" or "Mall Security" end
   if n.job == "maint" then return n.title == "night janitor" and "Night Janitor" or "Maintenance" end
   if n.job == "mgmt" then return U.cap(n.title or "mall office") end
+  if n.cousin then return "Your cousin" .. (n.school and (", " .. n.school) or "") end
+  if n.turfBoss and Turf.zone(n.turfBoss) and Turf.zone(n.turfBoss).boss == n.id then
+    local z = Turf.zone(n.turfBoss)
+    return (z.owner == "them" and "Runs " or "Used to run ") .. Turf.BY[n.turfBoss].name .. (n.clique and (", " .. n.clique) or "")
+  end
+  if n.crew and Turf.BY[n.crew] then
+    local boss = W.npcs[Turf.zone(n.crew).boss]
+    if boss then return U.cap(n.clique or "crew") .. ", " .. boss.first .. "'s crew" end
+  end
   if n.age < 19 then return (n.clique and U.cap(n.clique) .. ", " or "") .. (n.school or "") end
   if n.role == "walker" then return "Mall walker" end
   return U.cap(n.role)
@@ -103,13 +112,20 @@ function Dialog.run(n, id)
     if #entries == 0 then respond(n, { lines = { "You don't know any gossip. Ask around first." } }) return end
     Choose("TELL", labels, function(i)
       if entries[i].secret then entries[i].secret.told = true end
-      respond(n, Talk.tell(n, entries[i]))
+      local out = Talk.tell(n, entries[i])
+      Turf.onTell(n, entries[i])
+      respond(n, out)
     end, { cancel = function() Dialog.menu(n) end, w = 390, x = 5 })
   elseif id == "job" then
     Dialog.interview(n, n.job)
   elseif id == "challenge" then
     Dialog.close()
     Play.challenge(n)
+  elseif id == "callout" then
+    local ok, why = Turf.canCallOut(n)
+    if not ok then respond(n, { lines = { why }, mood = "angry" }) return end
+    Dialog.close()
+    Showdown.start(n)
   elseif id == "secjob" then
     Dialog.interview(n, "sec")
   elseif id == "hours" then
@@ -122,7 +138,9 @@ function Dialog.run(n, id)
       respond(n, { lines = { "Well. Turn in your name tag on the way out." }, mood = "sad" }, false)
     end, function() Dialog.menu(n) end, { npc = n })
   else
+    local before = n.p.f
     local out = Talk.act(n, id)
+    Turf.onTalk(n, id, n.p.f - before, out)
     respond(n, out, id ~= "insult" and not out.companion)
   end
 end

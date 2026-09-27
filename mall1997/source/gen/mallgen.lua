@@ -33,12 +33,15 @@ MallGen.TYPES = {
   department = { w = 0, rent = 16000, ticket = 4000, conv = 0.12, staff = 7, demo = { "everyone", "adults", "families" } },
   arcade = { w = 0, rent = 4800, ticket = 600, conv = 0.60, staff = 3, demo = { "teens", "kids" } },
   cinema = { w = 0, rent = 9000, ticket = 650, conv = 0.50, staff = 6, demo = { "everyone", "teens" } },
+  -- one per mall, never picked at random (see Pawn)
+  pawn = { w = 0, rent = 2400, ticket = 2600, conv = 0.08, staff = 2, demo = { "adults", "young adults" } },
 }
 MallGen.TYPE_LABEL = {
   clothing = "Clothing", shoes = "Shoes", electronics = "Electronics", music = "Music", video = "Video",
   books = "Books", toys = "Toys", games = "Video Games", jewelry = "Jewelry", sporting = "Sporting Goods",
   gifts = "Gifts", photo = "Photo", salon = "Salon", restaurant = "Restaurant", services = "Services",
   weird = "Specialty", food = "Food", department = "Department Store", arcade = "Arcade", cinema = "Cinema",
+  pawn = "Pawn Shop",
 }
 
 local FLAVOR = {
@@ -46,6 +49,8 @@ local FLAVOR = {
     "Has been 'going out of business' since 1993.", "Smells faintly of patchouli and ozone.",
     "The owner will tell you about the lizards whether you ask or not." },
   services = { "Keys cut while you wait.", "Mostly retirees and lost receipts." },
+  pawn = { "WE BUY GOLD. WE BUY ELECTRONICS. WE BUY. NO QUESTIONS.", "Glass cases full of other people's stuff.",
+    "The owner counts cash with a rubber thumb." },
   default = { "Blasting the radio a little too loud.", "Big SALE banner, permanently.",
     "Staff look bored in a friendly way.", "Glossy posters of models in the window.",
     "Mirrored walls and a ficus nobody waters.", "Smells like new carpet.", "Always a line at the register." },
@@ -97,6 +102,7 @@ function MallGen.newStore(W, r, typ, slot)
     s.hoursO = 12 * 60 + r:i(0, 3) * 30; s.hoursC = 18 * 60 + r:i(0, 4) * 30
     s.company = "the owner"
   end
+  if typ == "pawn" then s.company = "the owner"; s.sec = 1 end
   if typ == "food" then s.hoursO = 10 * 60 + 30 end
   if typ == "cinema" then s.hoursO = 11 * 60 + 30; s.hoursC = 23 * 60 + 45 end
   if typ == "salon" then s.closedSun = true end
@@ -206,7 +212,7 @@ function MallGen.genStores(W, r)
   W.mall.arcade = arcade.id
   -- guarantee the job-bearing store types exist
   local required = { "music", "video", "books", "photo", "games", "clothing", "salon", "services",
-    "weird", "weird", "toys", "shoes", "jewelry", "sporting", "gifts", "electronics", "restaurant" }
+    "weird", "weird", "toys", "shoes", "jewelry", "sporting", "gifts", "electronics", "restaurant", "pawn" }
   local free = {}
   for _, sl in ipairs(storeSlots) do if not sl.store then free[#free + 1] = sl end end
   r:shuffle(free)

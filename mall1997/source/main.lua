@@ -7,7 +7,7 @@
 --   world/     world state container, timeline, rumors, pager; area geometry
 --   sim/       simulation systems: npcai, stores, economy, social, security,
 --              jobs, cinema, arcade, music, trends, events, lore, player,
---              worldsim (tick orchestration)
+--              pawn, turf (the new kid's campaign), worldsim (tick orchestration)
 --   minigames/ job minigames      arcade/  arcade cabinet games
 --   ui/        gfx helpers, input, sprites/portraits, map renderer
 --   scenes/    title, morning, explore, dialog, shop, menu, etc.
@@ -38,6 +38,8 @@ import "sim/management"
 import "sim/romance"
 import "sim/lore"
 import "sim/talk"
+import "sim/pawn"
+import "sim/turf"
 import "sim/worldsim"
 import "core/save"
 
@@ -71,4 +73,5 @@ import "scenes/menu"
 import "scenes/play"
 import "scenes/day"
 import "scenes/secret"
+import "scenes/showdown"
 import "game"

@@ -15,10 +15,34 @@ end
 
 local function visit(r)
   local p = W.p
-  local choices = { "c1", "c2", "fc", "s" .. W.mall.arcade }
+  local choices = { "c1", "c2", "fc", "lot", "s" .. W.mall.arcade }
   local s = W.stores[r:i(1, #W.stores)]
   if s.open and s.type ~= "food" then choices[#choices + 1] = "s" .. s.id end
   p.area = r:pick(choices)
+end
+
+-- a face-off, played without the UI: always the strongest move still allowed
+function Bot.callout(boss, r)
+  local key = boss.turfBoss
+  local you, them, used = 0, 0, { roast = 0, flex = 0, crew = 0 }
+  for _ = 1, 5 do
+    local best, bv
+    for _, m in ipairs(Turf.MOVES) do
+      local v = Turf.power(m, boss)
+      if used[m] < 2 and (not bv or v > bv) then best, bv = m, v end
+    end
+    used[best] = used[best] + 1
+    local mine, theirs = Turf.round(boss, best, r)
+    if mine > theirs then you = you + 1 elseif mine < theirs then them = them + 1 end
+    if you >= 2 or them >= 2 then break end
+  end
+  if you > them then
+    local king = Turf.win(boss)
+    say("called out " .. NPCGen.name(boss) .. " and took " .. Turf.BY[key].name .. (king and " -- RUNS THE MALL" or ""))
+  else
+    Turf.lose(boss)
+    say("called out " .. NPCGen.name(boss) .. " in " .. Turf.BY[key].name .. " and lost")
+  end
 end
 
 function Bot.day(day)
@@ -58,11 +82,32 @@ function Bot.day(day)
           local hired = Jobs.decide(s.id, r:i(15, 40))
           say((hired and "got hired at " or "was turned down at ") .. s.name)
         end
+      elseif o.id == "callout" then
+        if Turf.canCallOut(n) then Bot.callout(n, r) end
       elseif o.id ~= "give" and o.id ~= "borrow" and o.id ~= "tell" and o.id ~= "quit" and o.id ~= "hours" and o.id ~= "insult" and o.id ~= "secjob" and o.id ~= "lend" then
+        local before = n.p.f
         local out = Talk.act(n, o.id)
+        Turf.onTalk(n, o.id, n.p.f - before, out)
         if o.id == "askout" and W.p.partner == n.id then say("started going out with " .. n.first) end
       end
       if p.companion then local c = W.npcs[p.companion]; if c then c.held = nil end; p.companion = nil end
+    end
+    -- whoever runs this turf, if there's enough respect to take them on
+    local key = Turf.zoneOf(p.area)
+    local z = key and Turf.zone(key)
+    local boss = z and z.owner == "them" and W.npcs[z.boss]
+    if boss and boss.loc == p.area and Turf.canCallOut(boss) then Bot.callout(boss, r) end
+    -- fence anything stolen
+    local pawn = Pawn.shop()
+    if pawn and r:chance(0.15) then
+      for _, it in ipairs(p.inv) do
+        if it.from == "stolen" and Pawn.offer(it) then
+          local cash = Pawn.offer(it)
+          Pawn.sell(it, pawn)
+          say("pawned " .. it.n .. " for " .. U.money(cash))
+          break
+        end
+      end
     end
     -- apply for jobs directly at hiring stores
     if not p.job and r:chance(0.3) then

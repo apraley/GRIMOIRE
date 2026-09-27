@@ -25,6 +25,24 @@ function Explore.start()
   ex.lastArea = nil
   Scene.reset(ex)
   Explore.arrive(W.p.area, true)
+  Explore.turfToast(W.p.area)
+end
+
+-- whose turf is this?
+function Explore.turfToast(area)
+  local msg = Turf.enter(area)
+  if msg then Toast.show(msg, 75) end
+end
+
+-- a little crown over the head of whoever runs the place
+local function drawCrown(x, y)
+  local gfx = playdate.graphics
+  gfx.setColor(gfx.kColorBlack)
+  gfx.fillRect(x - 5, y - 4, 11, 5)
+  gfx.fillRect(x - 5, y - 8, 2, 4); gfx.fillRect(x - 1, y - 9, 3, 5); gfx.fillRect(x + 4, y - 8, 2, 4)
+  gfx.setColor(gfx.kColorWhite)
+  gfx.fillRect(x - 4, y - 3, 9, 3)
+  gfx.setColor(gfx.kColorBlack)
 end
 
 -- ------------------------------------------------------------------ helpers
@@ -65,6 +83,7 @@ function Explore.go(to, px, py, quiet)
     ex.chase.delay = 45
   end
   Explore.arrive(to, quiet)
+  Explore.turfToast(to)
 end
 
 -- things that happen when entering an area
@@ -620,6 +639,11 @@ function ex:draw(isTop)
       if (Gfx.frame // 8) % 2 == 0 then Gfx.circle(e.x + 8, e.y - 26, 2, true) end
     end
     if e.chaser or e.mom then Gfx.text("!", e.x - 2, e.y - 42, { bold = true }) end
+    if e.n and e.n.turfBoss then
+      local z = Turf.zone(e.n.turfBoss)
+      if z and z.boss == e.n.id and z.owner == "them" then drawCrown(e.x, e.y - 25) end
+    end
+    if e.player and p.flags.king then drawCrown(e.x, e.y - 25) end
   end
   -- dark places
   if a.kind == "tunnel" or a.kind == "shelter" or (a.kind == "roof" and Clock.minute(W.t) > 19 * 60 + 30) then

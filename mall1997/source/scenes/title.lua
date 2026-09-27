@@ -102,15 +102,24 @@ end
 
 function Title.intro()
   local p = W.p
-  local friends = {}
-  for _, id in ipairs(p.friends) do friends[#friends + 1] = W.npcs[id].first end
+  local c = W.npcs[p.cousin or p.friends[1]]
+  local bosses = {}
+  for _, zdef in ipairs(Turf.ZONES) do
+    local z = Turf.zone(zdef.key)
+    local b = z and z.boss and W.npcs[z.boss]
+    if b and not zdef.final then bosses[#bosses + 1] = b.first .. " has " .. zdef.name end
+  end
+  local king = Turf.zone("c1") and W.npcs[Turf.zone("c1").boss]
   Say({
-    "Friday, August 29, 1997. The last weekend of summer.",
-    "You are " .. p.name .. ". You're sixteen. You have $22, a pager, a backpack, and a curfew.",
-    "Your friends are " .. U.join(friends, ", ", " and ") .. ". Your mom is dropping you off at the " .. W.mall.name .. ".",
-    "There are " .. #W.stores .. " stores, a food court, an arcade, a six-screen Cineplex, and about " .. #W.npcs .. " people who are here more than they should be.",
-    "Nobody needs you to save anything. You just have to live here.",
+    "Friday, August 29, 1997. The last weekend of summer. Your family moved to " .. W.mall.city .. " three weeks ago.",
+    "You are " .. p.name .. ". You're sixteen, and you're the new kid. You have $22, a pager, a backpack, and a curfew.",
+    "The only person here who knows your name is your cousin " .. c.first .. ". Everybody else is a stranger.",
+    "Every kid in " .. W.mall.city .. " hangs out at " .. W.mall.name .. ". And five of them run it.",
+    U.join(bosses, ", ", ", and ") .. ". " .. (king and (king.first .. " holds Center Court, and everybody knows it.") or ""),
+    "Earn respect on their turf, then call them out. Take all five and the mall is yours.",
+    "(Press B for your notebook. The TURF page shows who runs what, and how much respect you've earned.)",
   }, { after = function()
+    Pager.send(c.first:upper(), "UR HERE? START IN THE PARKING LOT. " .. (W.npcs[Turf.zone("lot").boss] or c).first:upper() .. " RUNS IT")
     p.atMall = true
     p.area = "lot"
     p.x, p.y = 4 * 16 + 8, 19 * 16 + 8

@@ -1,154 +1,163 @@
-== Briarwood Galleria  seed 1997  (generated in 0.02s)
-stores 135 (vacant slots 5), npcs 499, width 226 tiles
-types: arcade=1 books=7 cinema=1 clothing=18 department=3 electronics=8 food=11 games=9 gifts=7 jewelry=8 music=7 photo=4 restaurant=5 salon=6 services=8 shoes=11 sporting=4 toys=6 video=2 weird=9
-roles: employee=198 family=1 maint=5 manager=135 mgmt=3 parent=32 security=7 shopper=44 teen=60 walker=14
-simulated 30 days in 3.05s
+== Briarwood Galleria  seed 1997  (generated in 0.03s)
+stores 133 (vacant slots 5), npcs 497, width 226 tiles
+types: arcade=1 books=4 cinema=1 clothing=13 department=3 electronics=7 food=9 games=3 gifts=10 jewelry=7 music=6 pawn=1 photo=3 restaurant=7 salon=6 services=12 shoes=10 sporting=9 toys=10 video=3 weird=8
+roles: employee=181 family=1 maint=5 manager=133 mgmt=3 parent=34 security=7 shopper=48 teen=69 walker=16
+simulated 30 days in 3.37s
 
 ### FOOTFALL (NPCs physically in the mall at noon / 7pm)
-144 138 135 133 158 11 144 130 107 165 103 172 114 175 101 174 138 149 147 10 106 184 103 173 116 156 107 177 111 166 131 134 156 11 110 172 106 165 98 173 112 163 100 173 136 132 156 8 115 179 106 176 112 169 106 177 110 174 126 130
+139 128 137 136 147 11 148 118 110 164 98 152 105 164 104 152 134 148 144 14 93 183 106 170 110 161 108 150 101 162 134 118 140 16 112 162 104 165 98 158 102 166 102 157 124 145 147 11 104 178 103 163 101 165 109 161 106 169 134 128
 
 ### CHANGE OVER THE RUN
-stores whose popularity moved >=8: 19; cash down 124 / up 11
-friend edges +358 / -215; NPCs whose job changed 38; partner changes 21; crush changes 27
-NPCs seen in the mall: 512 (never: 5), avg distinct areas each: 8.8; co-location samples 35932
-never visited by role: employee=2 family=1 manager=2
+stores whose popularity moved >=8: 23; cash down 123 / up 10
+friend edges +343 / -218; NPCs whose job changed 37; partner changes 35; crush changes 39
+NPCs seen in the mall: 504 (never: 2), avg distinct areas each: 8.3; co-location samples 34259
+never visited by role: employee=1 manager=1
 
 ### PLAYER BOT
-money $55.46 job clerk @ Kessler's Books rep 51 conf 50 partner - record 0 days 30 fame 0
-met 7, friends 3, people who've heard rumors about you 208
-  9/1/97 8:00PM worked a shift at Kessler's Books (score 75)
-  9/2/97 8:00PM worked a shift at Kessler's Books (score 71)
-  9/3/97 8:00PM worked a shift at Kessler's Books (score 80)
-  9/4/97 3:45PM bought watch battery
-  9/4/97 4:23PM bought pager clip
-  9/5/97 8:58PM saw Rain Over Boise
-  9/6/97 8:00PM worked a shift at Kessler's Books (score 56)
-  9/7/97 12:51PM bought Pocket Critter virtual pet
-  9/8/97 6:38PM saw Rain Over Boise
-  9/9/97 8:00PM worked a shift at Kessler's Books (score 38)
-  9/10/97 6:38PM saw Rain Over Boise
-  9/12/97 8:00PM worked a shift at Kessler's Books (score 92)
-  9/14/97 2:08PM saw Air Bud III
-  9/14/97 6:00PM worked a shift at Kessler's Books (score 70)
-  9/15/97 8:00PM worked a shift at Kessler's Books (score 72)
-  9/16/97 4:02PM bought birthstone earrings
-  9/17/97 4:20PM bought overalls
-  9/17/97 8:08PM saw Air Bud III
-  9/18/97 8:00PM worked a shift at Kessler's Books (score 56)
-  9/19/97 8:00PM worked a shift at Kessler's Books (score 84)
+money $69.14 job shift lead @ Quarters rep 37 conf 46 partner - record 0 days 30 fame 0
+met 4, friends 1, people who've heard rumors about you 3
+  9/7/97 5:28PM bought shoe shine
+  9/8/97 3:59PM bought scented candle
+  9/8/97 4:25PM bought mood ring
+  9/9/97 8:00PM worked a shift at Quarters (score 38)
+  9/10/97 5:45PM bought Koosh ball
+  9/10/97 8:26PM bought headphones
+  9/12/97 8:00PM worked a shift at Quarters (score 92)
+  9/13/97 4:41PM bought Plush Pal (Bongo the Bear)
+  9/13/97 5:40PM bought watch battery
+  9/14/97 6:00PM worked a shift at Quarters (score 92)
+  9/15/97 8:00PM worked a shift at Quarters (score 72)
+  9/16/97 8:47PM bought watch battery
+  9/18/97 8:00PM worked a shift at Quarters (score 56)
+  9/19/97 8:00PM worked a shift at Quarters (score 84)
+  9/19/97 8:00PM bought Giggle Me Gus
   9/20/97 1:58PM saw Rain Over Boise
-  9/20/97 5:23PM bought platform sneakers
-  9/21/97 6:38PM saw Rain Over Boise
-  9/25/97 8:00PM worked a shift at Kessler's Books (score 53)
-  9/27/97 1:58PM saw Rain Over Boise
-  9/27/97 8:00PM worked a shift at Kessler's Books (score 88)
+  9/20/97 2:27PM bought patty melt
+  9/20/97 8:58PM saw Rain Over Boise
+  9/21/97 3:16PM bought baseball cap
+  9/22/97 3:30PM bought toe ring
+  9/23/97 8:00PM worked a shift at Quarters (score 37)
+  9/23/97 8:49PM bought fleece pullover
+  9/25/97 8:00PM worked a shift at Quarters (score 53)
+  9/26/97 4:30PM bought Tiger Lovers - Self-Titled
+  9/27/97 8:00PM worked a shift at Quarters (score 38)
+  9/27/97 8:36PM shoplifted AA batteries from Byte Barn
+standing: New Kid (22), turf held 0/5, pawned 1 (stolen 1)
+
+### TURF
+PARKING LOT  Nicole Jimenez         mall rats  crew 4  owner them respect   0/50 hold   0  weak crew
+ARCADE       Carlos Tran            nerds      crew 4  owner them respect   0/55 hold   0  weak crew
+UPPER LEVEL  Crystal Haines         band kids  crew 4  owner them respect   4/60 hold   0  weak roast
+FOOD COURT   Nate Iverson           preps      crew 4  owner them respect   0/65 hold   0  weak flex
+CENTER COURT Dustin Okafor          preps      crew 4  owner them respect   0/70 hold   0  weak flex
+pawn shop: Gold & Pawn, 18 items in the case
 
 ### NPC SCHEDULES (sample)
-#3 Tyler Morales (16, employee @33): 2:30PM-6:15PM work@s33
-#50 Carlos Sokolov (17, employee @10): 10:45AM-3:00PM work@s10
-#97 Danny Fischer (19, teen @17): (stays home)
-#144 Bev Jackson (30, manager @10): 10:30AM-2:15PM work@s10; 2:15PM-2:45PM break@b10; 2:45PM-6:00PM work@s10
-#191 Rick Park (30, employee @50): 2:30PM-6:15PM work@s50
-#238 Hal Petrakis (29, employee @57): (stays home)
-#285 Tammy Ellis (41, employee @81): (stays home)
-#332 Larry Lutz (44, employee @104): 10:45AM-3:00PM work@s104
+#3 Becca Castillo (19, employee @33): 2:30PM-6:15PM work@s33
+#50 Vanessa Carver (15, teen): (stays home)
+#97 Wes Radley (16, employee @78): (stays home)
+#144 Hector Ingram (27, employee @14): 1:30PM-4:45PM work@s14; 4:45PM-5:15PM break@b14; 5:15PM-8:00PM work@s14
+#191 Randy Schaefer (22, employee): (stays home)
+#238 Terri Okafor (31, manager @62): 10:30AM-2:15PM work@s62; 2:15PM-2:45PM break@b62; 2:45PM-6:00PM work@s62
+#285 Joan Abernathy (41, manager @85): (stays home)
+#332 Susan Marsh (30, employee @108): 10:45AM-3:00PM work@s108
 
 ### STORE ECONOMICS
-last week profitable: 62 of 138
-open 138, troubled 26, on sale 17, cash p10 $-5157 p50 $5524 p90 $16435
-  Monarch                    department  pop  42 cash $   27603 wk 4129,8068,8823,9813,8015  staff 7
-  Tax Pros                   services    pop  61 cash $    2985 wk 539,1351,1430,1566,1520  staff 2
-  Hair Affair                salon       pop  24 cash $   -7411 wk 758,1406,1498,1472,1112  staff 2
-  Rag Trade                  clothing    pop  60 cash $    9162 wk 1574,4798,4608,3809,4399  staff 4
-  Fun Factory                toys        pop  53 cash $    7190 wk 1171,2582,2551,2815,2900  staff 2
-  Cotton Candy Club          clothing    pop  64 cash $   15338 wk 3119,6512,6179,5052,5051  staff 3
-  Casual Friday              clothing    pop  35 cash $   -5190 wk 1259,2612,1823,1400,1010  staff 3
-  Candle Cove                gifts       pop  66 cash $    7950 wk 869,1830,1860,2016,1993  staff 2
-  Wonder Toys                toys        pop  64 cash $    8869 wk 1118,2708,2988,3424,3500  staff 1
-  Shear Madness              salon       pop  28 cash $   -5627 wk 1166,2145,1965,1678,1266  staff 2
-  Fischer's Services         services    pop  30 cash $     743 wk 399,888,857,941,853  staff 1
-  Coombs's Electronics       electronics pop  62 cash $   11267 wk 1551,4073,4636,4177,4236  staff 3
-  Twisted Pretzel Co.        food        pop  34 cash $    1148 wk 591,1378,1266,1483,1610  staff 2
+last week profitable: 60 of 136
+open 136, troubled 17, on sale 13, cash p10 $-2773 p50 $5772 p90 $14125
+  Monarch                    department  pop  42 cash $   27512 wk 4094,8220,8843,9658,7927  staff 7
+  Tax Pros                   services    pop  51 cash $    4092 wk 561,1281,1245,1359,1263  staff 1
+  Heel Street                shoes       pop  59 cash $   16892 wk 2569,7141,6282,5785,5341  staff 2
+  Sound & Vision             electronics pop  58 cash $    8682 wk 1053,3102,3175,2939,3459  staff 2
+  Gravity Hats               weird       pop  70 cash $    3646 wk 109,736,605,728,595  staff 2
+  Four Eyes Optical          services    pop  71 cash $    7431 wk 973,1769,1955,1769,1855  staff 2
+  Kiddie Kastle              toys        pop  81 cash $   14210 wk 1517,4343,4320,4642,4249  staff 2
+  Rewind Video               video       pop  44 cash $    2963 wk 769,1430,1298,1324,1380  staff 4
+  Spoon Emporium             weird       pop  75 cash $    4334 wk 409,928,468,813,891  staff 2
+  The Magnet Man             weird       pop  40 cash $     999 wk 194,389,453,446,444  staff 1
+  Whitaker's Shoes           shoes       pop  56 cash $   10891 wk 1545,6163,5676,4878,4637  staff 3
+  Vogel's Gifts              gifts       pop  61 cash $    5203 wk 812,1747,1850,1904,1816  staff 1
+  Starlite Cinemas           cinema      pop  59 cash $   13370 wk 4005,7952,7416,7786,7566  staff 6
 
 ### RELATIONSHIPS
-couples 20, crushes 77, friend-edges 552, enemy-edges 36
+couples 29, crushes 82, friend-edges 510, enemy-edges 42
 
 ### RUMORS
-active rumors: 56
-  [lore] known by 215 heat 10.0: the man who built the mall disappeared in 1979 owing everybody money
-  [hired] known by 208 heat 9.5: Alex works at Kessler's Books now
-  [lore] known by 159 heat 10.0: the fountain was built over the old Hollis farm well
-  [lore] known by 134 heat 10.0: somebody's been sleeping in the empty store; people call it the Mall Ghost
-  [record] known by 129 heat 9.5: Rob set a record on NEON SERPENT
-  [lore] known by 106 heat 10.0: that one storefront has said COMING SOON since 1991
-  [band] known by  82 heat 5.2: Marisol started a band called The Satellite Theory
-  [lore] known by  51 heat 10.0: the night janitor talks to somebody after closing, but he's alone
-  [lore] known by  27 heat 8.8: you can get on the roof from the maintenance room if you know who to ask
-  [band] known by  25 heat 0.4: Lindsay started a band called The Swing Set Parade
+active rumors: 60
+  [lore] known by 200 heat 10.0: the night janitor talks to somebody after closing, but he's alone
+  [lore] known by 127 heat 10.0: somebody's been sleeping in the empty store; people call it the Mall Ghost
+  [lore] known by  87 heat 10.0: you can get on the roof from the maintenance room if you know who to ask
+  [record] known by  81 heat 9.4: Luis won the arcade tournament
+  [lore] known by  76 heat 10.0: there's a fallout shelter under the mall from before it was built
+  [lore] known by  47 heat 10.0: the mall is exactly the same as a little model of it somewhere
+  [caught] known by  31 heat 0.3: Jenna Quinn got caught stealing at Groove Garage
+  [breakup] known by  30 heat 2.1: Marge and Curtis broke up by passing a note
+  [lore] known by  29 heat 8.2: that one storefront has said COMING SOON since 1991
+  [dating] known by  24 heat 4.9: Ashley is dating Lindsay Nguyen
 
 ### EMPLOYMENT
-hires 20 quits 7 fires 0 manager changes 12; job-seekers 21; stores hiring 39
+hires 24 quits 8 fires 0 manager changes 7; job-seekers 21; stores hiring 46
 
 ### SECURITY
-thefts 49 caught 17 bans 0 cams 21
+thefts 40 caught 23 bans 0 cams 19
 
 ### ARCADE
-  NEON SERPENT     top: AJY 5515  (10 entries)
-  ORBITAL DEFENSE  top: KGA 6010  (10 entries)
-  BLOCK TOWER      top: TRY 1170  (10 entries)
-  HIGHWAY 97       top: MJN 1662  (10 entries)
+  NEON SERPENT     top: LNS 5515  (10 entries)
+  ORBITAL DEFENSE  top: CSS 4190  (10 entries)
+  BLOCK TOWER      top: MOL 1090  (10 entries)
+  HIGHWAY 97       top: ZPK 1764  (10 entries)
 
 ### STATS
-bans=0 breakups=3 caught=17 closures=1 couples=7 feuds=3 fires=0 hires=20 mgrChanges=12 openings=4 quits=7 records=7 thefts=49
+bans=0 breakups=5 caught=23 closures=0 couples=12 feuds=0 fires=0 hires=24 mgrChanges=7 openings=3 quits=8 records=6 thefts=40
 
 ### TRENDS
 Plush Pal craze (peak), swing revival (fading), cargo pants everything (fading), everyone needs a pager (peak), virtual pets (rising)
 
 ### TIMELINE (last 45)
-  9/21/97 store  Platform 9 announced it is closing. EVERYTHING MUST GO.
-  9/21/97 store  Casual Friday put up a big 25% OFF banner.
-  9/21/97 store  Bill Vance is the new manager of Shear Madness (Raymond was fired).
-  9/21/97 store  Frank's Franks put up a big 15% OFF banner.
-  9/21/97 store  The managers of Threadbare and Fischer's Clothing are feuding over a blocked fire door.
-  9/21/97 store  GRAND OPENING: Jackson's Clothing (Clothing) opened on the upper level.
-  9/21/97 crime  After a rash of shoplifting, Cartridge King installed more security.
-  9/21/97 people Stan Robinson quit Wendell & Sons after a shouting match.
-  9/21/97 people Larry Coombs got hired at Circuit Village.
-  9/21/97 people Eric Coleman moved away (live with their dad).
-  9/21/97 crime  Security caught Alicia Kessler shoplifting a Plastic Jr. - Parking Lot Noise at Rhythm Den.
-  9/21/97 crime  Security caught Jessica Underwood shoplifting a Yin-Yang keychain at Holloway's Gifts.
-  9/22/97 people Joan Iverson and Victor Kessler are going out.
-  9/23/97 people Lynn Marsh and Pam Delgado are going out.
-  9/23/97 crime  Security caught Joan Ingram shoplifting a baby tee at Urban Outpost.
-  9/24/97 store  Pixel Palace closed for good after 14 months.
-  9/24/97 people Rick Park got hired at Cartridge King.
-  9/24/97 people Brittany McAllister moved away (Portland).
-  9/24/97 music  Travis, Nate and Stephanie started an electronica band called The Pocket Fever.
-  9/24/97 music  Tara, Michael and Joshua started a trip-hop band called The Northern Lanterns.
-  9/24/97 arcade BLOCK TOWER broke down. OUT OF ORDER sign taped to the screen.
-  9/24/97 people Courtney DeLuca and Courtney Okafor are going out.
-  9/25/97 people Tasha Garza moved away (Ohio).
-  9/25/97 people Tara Rizzo just moved to Millbrook from Cleveland.
-  9/25/97 arcade NEON SERPENT broke down. OUT OF ORDER sign taped to the screen.
-  9/26/97 people Tara Rizzo got hired at Tax Pros.
-  9/26/97 music  Crystal, Kelly and Crystal started an indie band called The Cherry Lovers.
-  9/26/97 music  Teen Night: The Pocket Fever played the food court stage.
-  9/27/97 people Denise Dunn moved away (Phoenix).
-  9/27/97 people Amanda Robinson just moved to Millbrook from Cleveland.
-  9/27/97 music  Megan, Brandon and Erin started a pop band called The Atomic Ghosts.
-  9/27/97 crime  Security caught Brittany Nguyen shoplifting a denim jacket at Foot Locale.
+  9/17/97 people Ned Radley and Mark Voss are going out.
+  9/17/97 people Gloria Coleman and Dennis Jimenez are going out.
+  9/18/97 people Erin Kim got hired at Captain Pete's.
+  9/18/97 people Maria Ferris moved away (Phoenix).
+  9/18/97 people Leon Greer just moved to Millbrook from Boise.
+  9/18/97 crime  Security caught Lori Washington shoplifting a toe ring at Karat Top.
+  9/19/97 people Leon Greer got hired at The Olive Grove.
+  9/20/97 people Corey Thibodeaux got hired at Mr. Fix-It Shoe & Key.
+  9/20/97 crime  Security caught Denise Carver shoplifting a Giggle Me Gus at Wonder Toys.
+  9/21/97 store  Tape Worm Video put up a big 25% OFF banner.
+  9/21/97 store  Lindsay Nguyen is the new manager of The Clip Joint (Victor was fired).
+  9/21/97 store  Hector Ingram is the new manager of Beanbag Nation (Lori was fired).
+  9/21/97 store  Chili Pepper Grill put up a big 20% OFF banner.
+  9/21/97 store  GRAND OPENING: Zoot & Suit (Clothing) opened on the lower level.
+  9/21/97 mall   New trend: virtual pets.
+  9/21/97 crime  Security caught Ron Pruitt shoplifting a scented candle at Quarters.
+  9/22/97 people Justin Abernathy and Tiffany Okafor are going out.
+  9/23/97 people Randy Schaefer quit Foot Locale because of the manager.
+  9/23/97 people Joshua Voss moved away (Portland).
+  9/23/97 crime  Security caught Carol Radley shoplifting a watch battery at Petrakis's Services.
+  9/23/97 player Mom drove to the mall to find Alex.
+  9/24/97 music  Kyle, Adam and Megan started a jam band band called The Pocket Fever.
+  9/24/97 crime  Security caught Zack Holloway shoplifting a funny mug at Gallagher's Gifts.
+  9/24/97 people Karen Hart and Ron Pruitt are going out.
+  9/24/97 crime  Security caught Diane Vance shoplifting a blank tapes (3pk) at Watts Up.
+  9/24/97 people Travis Petrakis and Rachel Hart are going out.
+  9/25/97 people Larry Esposito moved away (Portland).
+  9/25/97 people Janet Kowalski just moved to Millbrook from Tucson.
+  9/26/97 people Janet Kowalski got hired at Stitch & Co..
+  9/26/97 music  Tiffany, Marcus and Justin started a metal band called The Cherry Lovers.
+  9/26/97 music  Teen Night: The Cosmic Hearts played the food court stage.
+  9/27/97 people Lindsay Crane quit The Shoe Tree because of the manager.
+  9/27/97 people Greg Webb moved away (Phoenix).
+  9/27/97 music  Andrew, Danny and Glenn started a country band called The Sugar Division.
+  9/27/97 player Alex walked out of Byte Barn with something they didn't pay for.
   9/28/97 store  Monarch put in new fixtures and a neon sign.
   9/28/97 store  Joystick Junction announced it is closing. EVERYTHING MUST GO.
-  9/28/97 store  Gail Ingram is the new manager of Hair Affair (Phil was fired).
-  9/28/97 store  Frank's Franks announced it is closing. EVERYTHING MUST GO.
-  9/28/97 store  Swirl Buns brought in a new manager from out of town, Larry Tran.
-  9/28/97 store  The managers of The Record Rack and Candle Cove are feuding over who gets the holiday window display.
-  9/28/97 store  The managers of Card Carrying and Holloway's Gifts are feuding over the shared trash corridor.
-  9/28/97 store  GRAND OPENING: Coombs's Gifts (Gifts) opened on the lower level.
-  9/28/97 store  GRAND OPENING: Baker's Clothing (Clothing) opened on the lower level.
-  9/28/97 mall   New trend: virtual pets.
-  9/28/97 store  Feud: The Record Rack's manager left a note on Candle Cove's door that ended with 'regards'.
-  9/28/97 people Alicia Kessler quit Vinyl Countdown after a shouting match.
-  9/28/97 people Hal Voss moved away (Ohio).
-timeline entries by category: arcade=16 crime=19 job=1 mall=7 movie=3 music=18 people=62 player=2 store=37
-save: 714 KB, round trip 0.35s, npcs 517 rel sample ok=true
+  9/28/97 store  Circuit Village put up a big 30% OFF banner.
+  9/28/97 store  Glenn Jensen is the new manager of Optical Outlet (Diane was fired).
+  9/28/97 store  Plaid Nation announced it is closing. EVERYTHING MUST GO.
+  9/28/97 store  Wendy Whitaker is the new manager of Washington's Toys (Ned was fired).
+  9/28/97 store  Byte Barn put up a big 30% OFF banner.
+  9/28/97 store  GRAND OPENING: Petrakis's Jewelry (Jewelry) opened on the lower level.
+  9/28/97 store  GRAND OPENING: Reyes's Services (Services) opened on the upper level.
+  9/28/97 mall   New mall policy — No Wheels: No skateboards, rollerblades or roller skates in the mall.
+timeline entries by category: arcade=13 crime=23 job=2 mall=8 movie=3 music=15 people=66 player=5 store=27
+save: 700 KB, round trip 0.36s, npcs 506 rel sample ok=true

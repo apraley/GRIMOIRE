@@ -135,7 +135,20 @@ if useBot then
   for _, rm in ipairs(W.rumors) do if rm.about == -1 then heard = heard + rm.n end end
   print(("met %d, friends %d, people who've heard rumors about you %d"):format(met, fr, heard))
   for i = math.max(1, #Bot.log - 25), #Bot.log do print("  " .. Bot.log[i]) end
+  local label, v = Turf.standing()
+  print(("standing: %s (%d), turf held %d/%d, pawned %d (stolen %d)"):format(label, v, Turf.held(), #Turf.ZONES,
+    p.stats.pawned or 0, p.stats.fenced or 0))
 end
+
+hdr("TURF")
+for _, zd in ipairs(Turf.ZONES) do
+  local z = Turf.zone(zd.key)
+  local b = z.boss and W.npcs[z.boss]
+  print(("%-12s %-22s %-10s crew %d  owner %-4s respect %3d/%d hold %3d  weak %s"):format(zd.short,
+    b and NPCGen.name(b) or "-", b and (b.clique or "") or "", #z.crew, z.owner, z.resp, zd.need, z.hold, z.weak or "-"))
+end
+local pawn = Pawn.shop()
+print(("pawn shop: %s, %d items in the case"):format(pawn and pawn.name or "none", #(W.mall.pawnStock or {})))
 
 hdr("NPC SCHEDULES (sample)")
 local shown = 0

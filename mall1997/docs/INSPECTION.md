@@ -83,32 +83,35 @@ announced in the timeline but did nothing).
 
 ### 30 days (seed 1997, with the autopilot player)
 
-These numbers are from after the fix for Playdate's 32-bit integers, which
-changed the RNG's output, so seed 1997 now generates a different mall than
-the one in earlier drafts of this document.
+These numbers are from after the new-kid campaign and the pawn shop were
+added, which changed how seed 1997 generates, so the mall differs from the
+one in earlier drafts of this document. The cross-seed and 150-day figures
+below are from the previous generator.
 
-- **Mall:** 135 stores (3 department stores, 11 food stalls, cinema, arcade),
-  499 NPCs, and 97–185 named people physically in the mall at noon or 7 PM.
-  On top of those, the concourses and food court show an anonymous crowd
-  sized from the day's footfall (see below).
+- **Mall:** 133 stores (3 department stores, 9 food stalls, cinema, arcade,
+  and the pawn shop every mall now has), 497 NPCs. On top of the named
+  people, the concourses and food court show an anonymous crowd sized from
+  the day's footfall (see below).
 - **Stores:**
-  - 19 stores' popularity moved by 8 or more points;
-  - 62 of 138 stores were profitable in the last week, 26 are in trouble
-    and 17 are running sales. (Cash now falls at most stores over a month,
+  - 23 stores' popularity moved by 8 or more points;
+  - 60 of 136 stores were profitable in the last week, 17 are in trouble
+    and 13 are running sales. (Cash falls at most stores over a month,
     because owners take profits out; see "Year two" below.)
-  - six closings were announced, with liquidation sales;
-  - four managers were fired and replaced, and six more were brought in
+  - three closings were announced, with liquidation sales;
+  - five managers were fired and replaced, and one more was brought in
     from out of town;
-  - four new tenants opened, shaped by current trends.
+  - three new tenants opened, shaped by current trends.
 - **People:**
-  - 20 hires, 7 quits and 12 manager changes;
-  - 7 new couples and 21 partner changes, plus dates and anniversaries;
-  - 512 of 517 NPCs visited the mall, averaging 8.8 distinct areas each.
-- **Rumors:** 56 live rumors. Mall myths reach up to about 215 people. The
-  player bot's new job was heard about by 208 NPCs.
-- **Crime:** 49 NPC thefts, 17 caught.
-- **Arcade:** a tournament with 43 entrants and 7 new records.
-- **Save:** about 714 KB.
+  - 24 hires, 8 quits and 7 manager changes;
+  - 12 new couples and 35 partner changes, plus dates and anniversaries;
+  - 504 NPCs visited the mall (2 never did), averaging 8.3 distinct areas
+    each.
+- **Rumors:** 60 live rumors. Mall myths reach up to about 200 people.
+  The player bot starts as the new kid who knows only a cousin, so news
+  about it now reaches a handful of people instead of two hundred.
+- **Crime:** 40 NPC thefts, 23 caught.
+- **Arcade:** a tournament with 42 entrants and 6 new records.
+- **Save:** about 700 KB.
 
 Across seeds 7, 42 and 1234, the same 30 days produce:
 
@@ -202,3 +205,44 @@ Summer is still easy on stores. 1998 summer footfall is about 30% above the
 spring, and by late September 1998 only 4 stores are in trouble, against 23
 in January.
 
+
+## The new kid
+
+Playing the game in the Simulator made the problem plain: there was plenty
+to do and no reason to do any of it. People also walked backwards: the
+side-facing sprite was drawn facing right and mirrored for *right*, so
+everyone moonwalked. It is now mirrored for left.
+
+The player now starts as a kid who just moved to town, and the mall has five
+kids who run it (`sim/turf.lua`). Each mall picks them at generation, one per
+turf, from the cliques that fit it: skaters and mall rats get the Parking
+Lot, preps and jocks get the Food Court and Center Court. Each gets a crew,
+a weak spot, a strong suit and one embarrassing secret the crew knows.
+Worlds saved before this get their five rivals, and a pawn shop in a vacant
+storefront, the first time they load.
+
+To time the campaign I ran a scripted player that goes after whichever turf
+is closest to done. It talks to the kids hanging out there, gets the
+rival's crew to gossip, brings the cousin along, and calls the rival out as
+soon as it's allowed. This is a harder way to play than a real player's,
+because it goes straight to each turf and never passes through the others,
+so its turf decays faster. Over 45 days:
+
+| Seed | First turf | Turfs taken (retakes included) | Face-offs lost | Held on day 45 |
+|---|---|---|---|---|
+| 1997 | day 3 | 5 | 5 (three in a row at the Food Court) | 2 |
+| 7 | day 4 | 7 | 1 (Center Court) | 2 |
+| 42 | day 3 | 8 | 1 | 4 |
+
+None of the three took Center Court in 45 days. That is about right for a
+final boss, and a real player, who crosses the concourses every day, keeps
+their other turfs longer than this script does.
+
+The first version of the face-off was unwinnable: 13 straight losses on the
+Parking Lot. A new kid's moves scored about 3–5 against a rival's 7–12. The
+fix was to lower rival strength by 2, count respect already earned on the
+turf toward your Crew move, and let reputation add to Flex.
+
+One seed turned up a rival sitting at 100 respect whom nobody could ever call
+out: a store had hired them, so they were always at work. People who run a
+turf no longer get hired.

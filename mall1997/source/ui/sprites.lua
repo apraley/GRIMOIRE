@@ -181,9 +181,10 @@ local function build(lk, dir, frame)
   return img
 end
 
+-- The side templates face right; "left" is the same image mirrored.
 local function key(lk, dir, frame)
   return table.concat({ lk.hair or 0, lk.hc or 0, lk.shirt or 0, lk.pants or 0, lk.skin or 0, lk.acc or 0,
-    lk.uniform or "", dir == "right" and "left" or dir, frame }, ",")
+    lk.uniform or "", dir == "left" and "right" or dir, frame }, ",")
 end
 
 -- draw a character centered at feet position (x,y)
@@ -194,7 +195,7 @@ function Sprites.draw(lk, x, y, dir, frame)
   local img = cache[k]
   if not img then
     if cacheN > 400 then cache = {}; cacheN = 0 end
-    img = build(lk, dir == "right" and "left" or dir, frame)
+    img = build(lk, dir == "left" and "right" or dir, frame)
     cache[k] = img
     cacheN = cacheN + 1
   end
@@ -202,7 +203,7 @@ function Sprites.draw(lk, x, y, dir, frame)
   gfx.setPattern(Gfx.P.gray)
   gfx.fillEllipseInRect(x - 6, y - 3, 12, 5)
   gfx.setColor(gfx.kColorBlack)
-  img:draw(math.floor(x - SW / 2), math.floor(y - SH + 1), dir == "right" and gfx.kImageFlippedX or gfx.kImageUnflipped)
+  img:draw(math.floor(x - SW / 2), math.floor(y - SH + 1), dir == "left" and gfx.kImageFlippedX or gfx.kImageUnflipped)
 end
 
 -- ------------------------------------------------------------------ portraits

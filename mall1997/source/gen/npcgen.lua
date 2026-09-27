@@ -269,21 +269,13 @@ function NPCGen.genPopulation(W, r)
   fam.first = r:pick({ "Linda", "Karen", "Debbie", "Donna", "Cheryl" })
   fam.title = "your mom"; fam.loc = "home"
   W.p.mom = fam.id
-  local friends = U.filter(W.npcs, function(n) return n.age >= 15 and n.age <= 17 and n.role ~= "family" end)
-  r:shuffle(friends)
-  W.p.friends = {}
-  for i = 1, 3 do
-    local f = friends[i]
-    f.p.f = r:i(35, 60); f.p.t = r:i(25, 50); f.p.met = true
-    W.p.friends[#W.p.friends + 1] = f.id
-    if i == 1 then f.p.f = 70; f.p.t = 60; f.best = true end
-  end
-  for i = 1, 3 do for j = i + 1, 3 do mutual(friends[i], friends[j], r:i(30, 60)) end end
-  -- a handful of people who have heard of you
-  for _ = 1, 12 do
-    local n = W.npcs[r:i(1, #W.npcs)]
-    if n.age < 20 then n.p.met = true; n.p.f = n.p.f + r:i(-10, 20) end
-  end
+  -- you just moved here. The only kid in town who knows you is your cousin.
+  local kids = U.filter(W.npcs, function(n) return n.age >= 15 and n.age <= 17 and n.role ~= "family" and not n.job end)
+  if #kids == 0 then kids = U.filter(W.npcs, function(n) return n.age >= 15 and n.age <= 17 and n.role ~= "family" end) end
+  local c = kids[r:i(1, #kids)]
+  c.p.f = 60; c.p.t = 55; c.p.met = true; c.best = true; c.cousin = true
+  W.p.friends = { c.id }
+  W.p.cousin = c.id
 end
 
 -- People who moved away stay in W.npcs (ids are stable and the timeline,

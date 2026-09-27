@@ -83,6 +83,10 @@ function Econ.rack(s, idx)
     items = { { k = "service", n = "haircut", v = 1500, svc = "hair" }, { k = "service", n = "frosted tips", v = 3500, svc = "tips" },
       { k = "service", n = "perm", v = 4500, svc = "perm" }, { k = "service", n = "buzz cut", v = 900, svc = "buzz" } }
     label = "services"
+  elseif cat == "pawn" then
+    items = Pawn.rack(s, r)
+    label = "pawned goods"
+    return items, label
   elseif cat == "food" then
     items = { { k = "food", n = "patty melt", v = 649, food = 45 }, { k = "food", n = "club sandwich", v = 599, food = 40 },
       { k = "food", n = "slice of pie", v = 299, food = 20 }, { k = "food", n = "coffee", v = 99, food = 5, energy = 15 } }
@@ -149,6 +153,7 @@ function Econ.npcShop(n, s)
     s.stock = math.max(0, s.stock - 0.3)
     n.poss[#n.poss + 1] = { k = it.k, n = it.n, v = it.v, ref = it.ref }
     U.trim(n.poss, 12)
+    if it.pawnId then Pawn.bought(it) end
     if it.k == "album" then
       local a = W.music.albums[it.ref]
       a.sold = a.sold + 1
@@ -218,6 +223,7 @@ function Econ.buy(it, s)
   local copy = U.copy(it)
   copy.from = "bought"
   copy.store = s.id
+  if it.pawnId then Pawn.bought(it); copy.pawnId = nil end
   if it.k == "album" then
     local a = W.music.albums[it.ref]
     a.sold = a.sold + 1

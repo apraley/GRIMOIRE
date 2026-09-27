@@ -75,6 +75,8 @@ Names.storeNames = {
   weird = { "The Crystal Cavern", "Mr. Bob's Batteries & Lizards", "Spoon Emporium",
     "Sock Planet", "Nothing Over $1", "The Magnet Man", "Tarot & Taffy", "Gravity Hats",
     "Wallpaper Wizard", "Lamp Land", "Clocks Clocks Clocks", "Beanbag Nation" },
+  pawn = { "Gold & Pawn", "Cash-N-Carry Pawn", "Honest Abe's Pawn & Loan", "Second Chance Pawn",
+    "EZ Money Pawn", "Top Dollar Pawn", "The Pawn Stop" },
 }
 
 Names.companies = {
@@ -164,6 +166,12 @@ Names.foodItems = {
   sweet = { { "swirl bun", 279 }, { "cookie", 99 }, { "frozen yogurt", 239 } },
   burger = { { "cheeseburger", 299 }, { "fries", 149 }, { "shake", 219 } },
 }
+-- what's already in a pawn shop's cases before you start selling to it
+Names.pawnItems = { { "used Walkman", 1500 }, { "class ring", 4500 }, { "Casio keyboard", 3500 },
+  { "camcorder", 12000 }, { "VCR", 4000 }, { "electric guitar", 9000 }, { "Nintendo 64", 11000 },
+  { "gold chain", 6500 }, { "Discman", 4500 }, { "pager", 2500 }, { "boombox", 3000 },
+  { "letterman jacket", 2500 }, { "Rollerblades", 2000 }, { "12-string guitar", 7500 } }
+
 Names.weirdItems = { { "lava lamp", 2400 }, { "geode", 800 }, { "Magic Eye poster", 1200 },
   { "baby iguana (live)", 3500 }, { "decorative spoon", 600 }, { "D batteries x8", 700 },
   { "glow-in-dark stars", 400 }, { "novelty clock", 1900 }, { "jar of old keys", 300 },

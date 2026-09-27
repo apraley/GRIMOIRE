@@ -101,8 +101,11 @@ function Save.read()
   if not d or d.ver ~= World.VERSION then return false end
   W = unpack_(d)
   Areas.invalidate()
-  -- rebuild today's plans; people who were out and about start from home
   local day = Clock.day(W.t)
+  -- saves from before the pawn shop and the turf campaign
+  Pawn.ensure(day, true)
+  Turf.ensure()
+  -- rebuild today's plans; people who were out and about start from home
   for _, n in ipairs(W.npcs) do
     if n.status == "active" then
       if n.loc ~= "home" then n.loc = "home"; n.dest = "home" end

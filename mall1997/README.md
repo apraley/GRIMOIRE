@@ -4,11 +4,16 @@ A persistent life simulation for **Playdate**, written in Lua against Panic's
 Playdate SDK. The whole game takes place inside one procedurally generated
 American suburban shopping mall, starting Friday, August 29, 1997.
 
-There is no goal. You are sixteen. You have $22, a pager, a backpack, three
-friends and a curfew. The mall runs whether or not you're there: stores open,
-struggle and close; people fall in and out of love; someone breaks your
-arcade record while you're at school; a rumor about you reaches the food
-court before you do.
+You are sixteen and the new kid in town. You have $22, a pager, a backpack,
+a curfew, and one cousin who knows your name. Five kids run the mall, each on
+their own turf with their own crew: the parking lot, the arcade, the upper
+level, the food court and Center Court. Earn respect on their turf, dig up
+dirt, call them out, and take it. Hold all five and you run the mall.
+
+The mall runs whether or not you're there: stores open, struggle and close;
+people fall in and out of love; someone breaks your arcade record while
+you're at school; a rumor about you reaches the food court before you do; and
+a rival takes back the turf you stopped showing up for.
 
 > "I can live inside this place."
 
@@ -25,6 +30,8 @@ font). They are shown at 2x.
 | ![record store](docs/screens/07_music_store.png) | ![arcade](docs/screens/08_arcade.png) |
 | ![dialog](docs/screens/09_dialog.png) | ![record bin](docs/screens/10_browse.png) |
 | ![record store shift](docs/screens/15_minigame_record.png) | ![the model](docs/screens/17_model.png) |
+| ![turf page](docs/screens/21_menu_turf.png) | ![face-off](docs/screens/22_faceoff.png) |
+| ![pawn shop](docs/screens/23_pawn_counter.png) | ![intro](docs/screens/02_intro.png) |
 
 ## Building and running
 
@@ -70,8 +77,32 @@ Keys: arrows walk, <kbd>X</kbd>/<kbd>Enter</kbd> is A, <kbd>Z</kbd> is B,
 |---|---|---|
 | D-pad | walk | move the selection |
 | A | talk / use / enter | confirm |
-| B | open the life menu (ME, BAG, PAGER, PEOPLE, RUMORS, NEWS, MALL, LORE, SAVE) | back |
+| B | open the life menu (ME, TURF, BAG, PAGER, PEOPLE, RUMORS, NEWS, MALL, LORE, SAVE) | back |
 | Crank | scroll pager messages on a ticker | flip record, VHS and clothing racks; scroll lists; spin the prize wheel; dial combination locks; enter arcade initials; strum at Teen Night; job minigames: pour soda, focus the projector, feed film, dial tokens, pick the CCTV feed |
+
+## The new kid's campaign
+
+- **Five turfs, five rivals.** Each new mall picks five teenagers to run the
+  Parking Lot, the Arcade, the Upper Level, the Food Court and Center Court.
+  Each has a crew of four, a weak spot, a strong suit and an embarrassing
+  secret. They hang out on their turf most afternoons, with a crown over
+  their head. The TURF page (B) shows who runs what and your respect there.
+- **Respect** comes from being somebody on their turf:
+  - talking well with the kids who hang out there (their crew counts more);
+  - beating people head-to-head at the arcade and setting records;
+  - spreading rumors and secrets about whoever runs it;
+  - walking out of a store on that level with something you didn't pay for.
+  Respect fades if you stay away. Rivals page you taunts and spread things
+  about you.
+- **Calling someone out** is a best-of-three face-off in front of whoever is
+  around. Each round is a Roast (the dirt you've dug up; their crew will leak
+  it if they like you), a Flex (the best stuff in your bag, your fame, your
+  hair) or a Crew move (friends standing there with you, and the turf you
+  already hold). Win and the turf is yours, and their crew warms to you. Lose
+  and you're the joke of the week.
+- **Center Court** only answers to someone who already holds three turfs.
+  Take all five and you run the mall, until you stop showing up and someone
+  takes a turf back.
 
 ## What's simulated
 
@@ -104,6 +135,11 @@ Keys: arrows walk, <kbd>X</kbd>/<kbd>Enter</kbd> is A, <kbd>Z</kbd> is B,
   is judged against who can actually see you, and evidence (witnesses, tape)
   matters. Consequences escalate from a warning, to detention with your parents
   called, to bans and being escorted out. People hear about it.
+- **The pawn shop** buys anything that isn't nailed down: about 35% of retail
+  for things you bought, 30% for things you didn't, and 20% if you stole it
+  today. No questions. What you sell goes into its cases, where anyone can
+  buy it back, kleptomaniac NPCs fence there too, and mall security
+  sometimes matches a pawn ticket to a theft report.
 - **Jobs** at the record store, video store, food court, arcade, cinema,
   photo lab, bookstore, department store and, eventually, mall security. Each
   has its own minigame, and you can be promoted all the way to store manager.
@@ -128,12 +164,13 @@ source/
   gen/                names, content (music/movies/arcade), mallgen (slots/stores/cameras), npcgen
   world/              world (W, timeline, rumors, pager), areas (derived geometry, never saved)
   sim/                npcai, stores, economy, cinema, arcade, music, trends, social, romance,
-                      security, jobs, player, events, management, lore, talk, worldsim (tick)
+                      security, jobs, player, events, management, lore, talk, pawn,
+                      turf (the campaign), worldsim (tick)
   minigames/          job minigames (record, video, food, arcade, cinema, photo, books,
                       department, security) + registry
   arcade/             cabinet games (serpent, orbital, tower, racer)
   ui/                 gfx (double-border boxes, neon dithers, text), input, sprites/portraits, mapview, crowd
-  scenes/             scene stack, title, explore, dialog, shop, interact, menu, play, day, secret
+  scenes/             scene stack, title, explore, dialog, shop, interact, menu, play, day, secret, showdown
 ```
 
 - **Persistent entities have stable integer ids** (`W.stores[i]`,
@@ -161,7 +198,7 @@ undocumented API fails the run**.
 | `tools/build_lua32.sh <lua-5.4-src>` | Builds a Lua with 32-bit integers and floats like the Playdate runtime. Run the other tools with it: stock Lua's 64-bit integers hide overflow bugs. |
 | `lua5.4 tools/apicheck.lua` | Static scan: every `playdate.*` / `gfx.*` reference must be documented. |
 | `lua5.4 tools/test_games.lua` | Runs all 9 job minigames and 4 arcade games with random input. |
-| `lua5.4 tools/flows.lua` | Scripted end-to-end play through the real UI: new game, shopping, shoplifting and getting caught, every dialog option, interview and shift, arcade and initials, prize wheel, movie, menus, the secret locked room, band gig, save/load, day cycles, doors and escalators. |
+| `lua5.4 tools/flows.lua` | Scripted end-to-end play through the real UI: new game, shopping, shoplifting and getting caught, every dialog option, interview and shift, arcade and initials, prize wheel, movie, menus, the secret locked room, band gig, selling to the pawn shop and buying back, taking a turf in a face-off and losing it again, save/load, day cycles, doors and escalators. |
 | `lua5.4 tools/smoke.lua [frames]` | Random-input fuzzing of the whole game. |
 | `lua5.4 tools/sim30.lua [seed] [days] [--bot]` | Simulates a month and prints a report on every system. |
 | `lua5.4 tools/screens.lua` | Renders screenshots with a software rasterizer into `docs/screens/`. |

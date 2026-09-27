@@ -95,10 +95,14 @@ local function teenPlan(n, day, info, plan, r, from, to)
   local meet, meetOffset = NPCAI.cliqueSpot(n.clique or "mall rats", day)
   local meetT = from + meetOffset
   local used = 0
+  -- the kids who run a turf (and their crews) mostly hold it down
+  local tk = n.turfBoss or n.crew
+  local tz = tk and W.turf and W.turf.z[tk]
   while t < to - 20 and used < 5 do
     used = used + 1
     local what
-    if t <= meetT and meetT < t + 90 and r:chance(0.7) then what = meet
+    if tz and r:chance(n.turfBoss and (tz.owner == "them" and 0.75 or 0.3) or 0.45) then what = Turf.BY[tk].spot
+    elseif t <= meetT and meetT < t + 90 and r:chance(0.7) then what = meet
     else
       local prefs = CLIQUE_PREF[n.clique] or {}
       what = r:weighted(TEEN_SPOTS, function(k) return (prefs[k] or 1) end)

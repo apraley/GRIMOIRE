@@ -235,6 +235,45 @@ step("20_cinema_lobby", function()
   save("20_cinema_lobby")
 end)
 
+step("21_menu_turf", function()
+  home("lot", 20 * 16, 10 * 16)
+  local z = Turf.zone("lot")
+  z.resp = 34
+  Turf.zone("arcade").resp = 12
+  Menu.open("TURF")
+  idle(5)
+  save("21_menu_turf")
+  press(B.b)
+end)
+
+step("22_faceoff", function()
+  home("lot", 20 * 16, 10 * 16)
+  local z = Turf.zone("lot")
+  local boss = W.npcs[z.boss]
+  boss.loc = "lot"; boss.route = nil; boss.x, boss.y = W.p.x + 24, W.p.y
+  z.resp = 60
+  W.p.secrets = { { npc = boss.id, txt = boss.turfDirt, turf = true } }
+  Toast.t = 0
+  Showdown.start(boss)
+  for _ = 1, 12 do if Scene.top() and Scene.top().items then break end press(B.a) end
+  idle(5)
+  save("22_faceoff")
+  for _ = 1, 300 do if Scene.top() == Explore.scene then break end press(B.a) end
+end)
+
+step("23_pawn_counter", function()
+  local s = Stores.byType("pawn")[1]
+  local id = Areas.storeArea(s)
+  local a = Areas.build(id)
+  home(id, a.w * 8, 5 * 16)
+  Econ.give({ k = "jewelry", n = "silver hoop earrings", v = 2999, from = "stolen", store = s.id })
+  Econ.give({ k = "electronic", n = "Discman", v = 6999, from = "stolen", store = s.id, d = Clock.day(W.t) - 5 })
+  Shop.pawnSell(s, Stores.presentStaff(s)[1])
+  idle(5)
+  save("23_pawn_counter")
+  press(B.b)
+end)
+
 print(("%d screenshots in %s"):format(#produced, OUT))
 if #skipped > 0 then
   print("skipped:")

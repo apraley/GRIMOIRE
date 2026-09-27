@@ -491,6 +491,7 @@ function Play.challenge(n)
         n.p.f = U.clamp(n.p.f + 6, -100, 100); n.p.t = U.clamp(n.p.t + 4, -100, 100)
         n.rival = nil
         p.fame = p.fame + 2
+        Turf.gain("arcade", n.crew == "arcade" and 14 or 10, "challenge")
         Memory.add(n, "lostto", "lost a " .. def.name .. " challenge to " .. p.name, -1)
         local seeds = ArcadeSim.witnesses()
         Rumors.add("record", -1, p.name .. " beat " .. n.first .. " head-to-head at " .. def.name, 5, seeds)

@@ -1,10 +1,10 @@
--- Pause menu: your life at a glance. Tabs: ME, BAG, PAGER, PEOPLE, RUMORS,
+-- Pause menu: your life at a glance. Tabs: ME, TURF, BAG, PAGER, PEOPLE, RUMORS,
 -- NEWS (the world timeline), MALL (directory, charts, films, records),
 -- LORE, SAVE. Crank or D-pad scrolls; LEFT/RIGHT switch tabs.
 
 Menu = {}
 
-local TABS = { "ME", "BAG", "PAGER", "PEOPLE", "RUMORS", "NEWS", "MALL", "LORE", "SAVE" }
+local TABS = { "ME", "TURF", "BAG", "PAGER", "PEOPLE", "RUMORS", "NEWS", "MALL", "LORE", "SAVE" }
 
 local function fit(s, w)
   s = tostring(s)
@@ -24,6 +24,9 @@ B.ME = function()
   local rows = {}
   local function add(t, h) rows[#rows + 1] = { text = t, hdr = h } end
   add(p.name .. ", " .. p.age .. ". " .. Clock.dateStr(day), true)
+  add("Standing: " .. (Turf.standing()) .. "   Turf held: " .. Turf.held() .. "/" .. #Turf.ZONES)
+  local goal = Turf.goal()
+  if goal then add("Next: " .. goal) end
   add("Money " .. U.money(p.money) .. "   Tokens " .. p.tokens .. "   Tickets " .. (p.tickets or 0))
   add("Energy   " .. bar(p.energy) .. "   Hunger  " .. bar(p.hunger))
   add("Confid.  " .. bar(p.conf) .. "   Rep     " .. bar(p.rep or 20))
@@ -47,7 +50,7 @@ B.ME = function()
   add("Days at the mall: " .. p.stats.days .. "   Conversations: " .. p.stats.talks)
   add("Movies seen: " .. U.count(p.stats.movies) .. "   Albums owned: " .. U.count(p.stats.albums))
   add("Shifts worked: " .. p.stats.shifts .. "   Earned: " .. U.money(p.stats.earned))
-  add("Things stolen: " .. p.stats.stolen .. "   Times caught: " .. p.stats.caught)
+  add("Things stolen: " .. p.stats.stolen .. "   Times caught: " .. p.stats.caught .. "   Pawned: " .. (p.stats.pawned or 0))
   add("Dates: " .. p.stats.dates .. "   Gigs: " .. p.stats.gigs .. "   Mall secrets: " .. Lore.count() .. "/" .. Lore.total())
   local recs = 0
   for _, g in ipairs(Content.ARCADE_GAMES) do local b = W.arcade.scores[g.key]; if b[1] and b[1].who == -1 then recs = recs + 1 end end
@@ -185,6 +188,42 @@ B.SAVE = function()
     { text = "D-pad: walk.  A: talk / use.  B: this menu." },
     { text = "Crank: pager ticker, record racks, dials, wheels." },
   }
+end
+
+B.TURF = function()
+  local rows = {}
+  local function add(t, h, act) rows[#rows + 1] = { text = t, hdr = h, act = act } end
+  local label, v = Turf.standing()
+  add("STANDING: " .. label:upper() .. "  (" .. v .. ")", true)
+  local goal = Turf.goal()
+  if goal then add(goal) end
+  for _, zdef in ipairs(Turf.ZONES) do
+    local z = Turf.zone(zdef.key)
+    local boss = z and z.boss and W.npcs[z.boss]
+    if z then
+      local act = boss and function() Menu.person(boss) end
+      if z.owner == "you" then
+        add(zdef.short .. " - YOURS", true, act)
+        add("  Hold " .. z.hold .. "/100. Show up or " .. (boss and boss.first or "someone") .. " takes it back.", false, act)
+      elseif boss then
+        add(zdef.short .. " - " .. NPCGen.name(boss) .. (boss.clique and (", " .. boss.clique) or ""), true, act)
+        local line = "  Respect " .. z.resp .. "/" .. zdef.need .. "   Crew: " .. #z.crew
+        if zdef.final and Turf.held() < 3 then line = line .. "   (take 3 turfs first)" end
+        add(line, false, act)
+        if z.dirt then add("  You've got dirt on " .. boss.first .. ".", false, act) end
+        if z.resp >= zdef.need * 0.6 or z.dirt then
+          add("  Word is: " .. boss.first .. (z.weak == "roast" and " can't take a roast." or z.weak == "flex" and " is jealous of nice stuff." or " folds without backup."), false, act)
+        end
+      end
+    end
+  end
+  add("HOW TO EARN RESPECT", true)
+  add("Make friends where they hang out. Their crew counts double.")
+  add("Win arcade challenges. Set records.")
+  add("Get their crew to gossip: they'll leak dirt. Spread it.")
+  add("Then talk to whoever runs it: Call them out.")
+  add("Face-offs: Roast (dirt), Flex (stuff, fame), Crew (friends).")
+  return rows
 end
 
 local ms = { overlay = false }

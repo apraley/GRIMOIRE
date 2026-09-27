@@ -17,6 +17,7 @@ function WorldSim.bootstrap()
   W.mall.basePop = 0
   for _, n in ipairs(W.npcs) do if n.status == "active" then W.mall.basePop = W.mall.basePop + 1 end end
   W.lastDay = Clock.day(W.t)
+  Turf.setup()
   NPCAI.newDay(W.lastDay)
   W.lastSocial = W.t
 end
@@ -32,6 +33,8 @@ function WorldSim.newDay(day)
     Security.weekly(day)
     Social.weekly()
     Management.weekly(day)
+    Pawn.weekly(day, U.rng(W.seed, "pawnweek", day))
+    Pawn.ensure(day)
   end
   if info.wd == 5 then CinemaSim.weekly(day) end
   Stores.staffing(day)
@@ -42,6 +45,7 @@ function WorldSim.newDay(day)
   Events.daily(day)
   Jobs.daily(day)
   PlayerSim.daily(day)
+  Turf.daily(day)
   NPCAI.newDay(day)
   Romance.coincidences(day)
   ArcadeSim.tourneyPlans(day)

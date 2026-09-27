@@ -9,6 +9,7 @@ Jobs.KIND = {
   restaurant = "food", clothing = "department", shoes = "department", toys = "department",
   games = "department", gifts = "department", sporting = "department", electronics = "department",
   jewelry = "department", weird = "department", services = "department", salon = "department",
+  pawn = "department",
 }
 Jobs.RANKS = { "clerk", "shift lead", "assistant manager", "manager" }
 Jobs.SEC_TITLES = { "loss prevention intern", "loss prevention", "senior loss prevention", "night supervisor" }

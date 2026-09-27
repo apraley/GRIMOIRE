@@ -170,13 +170,70 @@ flow("secret places", function()
 end)
 
 flow("band + gig", function()
-  for i = 1, 3 do W.npcs[p.friends[i]].p.f = 80 end
+  local teens = U.filter(W.npcs, function(n) return n.age < 19 and n.status == "active" and n.role ~= "family" end)
+  for i = 1, 3 do teens[i].p.f = 80 end
   Play.bandSignup(); press(B.a); press(B.a)
   untilExplore(100)
   assert(p.band, "no band")
   p.band.practice = 3
   p.area = "fc"; Explore.arrive("fc", true)
   Play.gig(true)
+end)
+
+flow("pawn shop: sell loot, buy it back", function()
+  local s = goStore("pawn")
+  local e = Stores.byType("electronics")[1]
+  Econ.give({ k = "electronic", n = "Sony Walkman", v = 3999, from = "stolen", store = e.id })
+  local before, nInv = p.money, #p.inv
+  Shop.pawnSell(s, nil)
+  press(B.a)                 -- the Walkman (only sellable thing)
+  press(B.a)                 -- yes
+  for _ = 1, 20 do press(B.a) if Scene.top() == Explore.scene then break end end
+  untilExplore(200)
+  assert(p.money > before, "no money for the Walkman")
+  for _, it in ipairs(p.inv) do assert(it.n ~= "Sony Walkman", "Walkman still in the bag") end
+  assert(#p.inv < nInv, "nothing sold")
+  local found
+  for _, it in ipairs(Econ.rack(s, 1)) do if it.pawnId and it.n == "Sony Walkman" then found = it end end
+  assert(found, "sold item not in the pawn case")
+  assert(Econ.buy(found, s), "could not buy it back")
+  for _, it in ipairs(Econ.rack(s, 1)) do assert(it.pawnId ~= found.pawnId, "bought item still in the case") end
+  assert(not Pawn.offer({ k = "gear", n = "pager", v = 0 }), "bought gear")
+end)
+
+flow("turf: earn respect, call out, take the lot, lose it", function()
+  local z = Turf.zone("lot")
+  local boss = W.npcs[z.boss]
+  assert(boss and boss.turfBoss == "lot", "no boss for the lot")
+  p.area = "lot"; p.x, p.y = 20 * 16, 10 * 16; Explore.arrive("lot", true)
+  boss.loc = "lot"; boss.route = nil; boss.x, boss.y = p.x + 20, p.y
+  local ok = Turf.canCallOut(boss)
+  assert(not ok, "called out with no respect")
+  -- respect from talking to people on the lot
+  local d0 = Clock.day(W.t)
+  local kid = U.filter(W.npcs, function(n) return n.age < 19 and n.status == "active" and not n.turfBoss end)[1]
+  kid.p.turfDay = nil
+  Turf.onTalk(kid, "chat", 3, { lines = {} })
+  assert(z.resp > 0, "talking earned no respect")
+  z.resp = 60
+  z.weak, z.strong = "roast", "crew"
+  p.secrets = { { npc = boss.id, txt = boss.turfDirt, turf = true } }
+  p.conf = 100
+  assert(Turf.canCallOut(boss), "can't call out with respect")
+  Showdown.start(boss)
+  for i = 1, 400 do
+    if Scene.top() == Explore.scene then break end
+    if i % 7 == 0 then press(B.down) end
+    press(B.a)
+  end
+  assert(z.owner == "you", "lost a rigged face-off")
+  assert(Turf.held() == 1, "held count")
+  assert(Turf.standing() ~= nil and Turf.goal() ~= nil, "standing/goal")
+  -- neglect it and the old boss takes it back
+  z.hold = 26; z.visit = d0 - 10
+  Turf.daily(d0 + 1)
+  assert(z.owner == "them", "turf not retaken")
+  Menu.open("TURF"); press(B.b)
 end)
 
 flow("save + load round trip", function()
