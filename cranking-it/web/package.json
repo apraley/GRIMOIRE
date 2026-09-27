@@ -1,0 +1,8 @@
+{
+  "name": "cranking-it-web-player",
+  "private": true,
+  "description": "Build-time dependency for the CRANKING IT web player (Lua 5.4 on WebAssembly).",
+  "dependencies": {
+    "wasmoon": "1.16.0"
+  }
+}
