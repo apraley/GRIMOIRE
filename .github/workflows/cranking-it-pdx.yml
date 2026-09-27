@@ -86,6 +86,7 @@ jobs:
         working-directory: cranking-it
         run: |
           set +e
+          export SDL_AUDIODRIVER=dummy
           timeout 600 xvfb-run -a "$PLAYDATE_SDK_PATH/bin/PlaydateSimulator" "$PWD/Autotest.pdx" > sim.log 2>&1
           echo "simulator exit code $?"
           grep -E "AUTOTEST|error|Error" sim.log | head -200
