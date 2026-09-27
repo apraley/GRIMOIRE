@@ -53,3 +53,53 @@ jobs:
           git add -f cranking-it/build/CrankingIt.pdx.zip
           git commit -m "CRANKING IT: built CrankingIt.pdx.zip" || exit 0
           git push
+
+  # Plays every machine and mode in Panic's Linux Simulator under a virtual
+  # display, driven by tools/sim_autotest.lua, and fails on any Lua error.
+  simulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Playdate SDK and Simulator dependencies
+        run: |
+          curl -fsSL -o sdk.tar.gz https://download.panic.com/playdate_sdk/Linux/PlaydateSDK-latest.tar.gz
+          mkdir sdk
+          tar -xzf sdk.tar.gz -C sdk --strip-components=1
+          echo "PLAYDATE_SDK_PATH=$PWD/sdk" >> "$GITHUB_ENV"
+          echo "$PWD/sdk/bin" >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgtk-3-0t64 libwebkit2gtk-4.1-0 libasound2t64 libpulse0 >/dev/null
+          ls sdk/bin
+          ldd sdk/bin/PlaydateSimulator | grep "not found" || true
+
+      - name: Build the autotest .pdx
+        working-directory: cranking-it
+        run: |
+          cp -r source autotest-src
+          cp tools/sim_autotest.lua autotest-src/sim_autotest.lua
+          printf '\nimport "sim_autotest"\n' >> autotest-src/main.lua
+          pdc autotest-src Autotest.pdx
+
+      - name: Run it in the Simulator
+        working-directory: cranking-it
+        run: |
+          set +e
+          timeout 600 xvfb-run -a "$PLAYDATE_SDK_PATH/bin/PlaydateSimulator" "$PWD/Autotest.pdx" > sim.log 2>&1
+          echo "simulator exit code $?"
+          grep -E "AUTOTEST|error|Error" sim.log | head -200
+          echo "---- tail of simulator output"
+          tail -40 sim.log
+          f=$(find "$PLAYDATE_SDK_PATH/Disk/Data" -name 'autotest.json' 2>/dev/null | head -1)
+          echo "---- datastore: $f"
+          [ -n "$f" ] && cat "$f"
+          set -e
+          test -n "$f"
+          grep -q '"errors":0' "$f" || grep -q '"errors": 0' "$f"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulator-log
+          path: cranking-it/sim.log
