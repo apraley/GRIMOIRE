@@ -41,6 +41,29 @@ The game has no asset files. Every sprite, portrait, sign and tile is drawn
 procedurally at runtime with the 1-bit graphics API, and text uses the system
 font.
 
+### Playing in a browser
+
+`python3 tools/build_web.py` builds a web version into `web/dist/`. It runs
+the game's own Lua source on Lua 5.4 compiled to WebAssembly
+([wasmoon](https://github.com/ceifa/wasmoon), MIT, vendored in
+`web/vendor/`), on the same strict Playdate mock and 1-bit rasterizer the
+test tools use. `web/boot.lua` connects them to the page:
+
+- it serves the sources from memory;
+- saves go to the browser's `localStorage`;
+- the system menu appears behind the page's MENU button;
+- synth notes play through Web Audio.
+
+It produces two outputs:
+
+- `web/dist/mall1997-offline.html` is one self-contained file. Open it
+  straight from disk.
+- `web/dist/index.html` + `glue.wasm` is for hosting.
+
+Keys: arrows walk, <kbd>X</kbd>/<kbd>Enter</kbd> is A, <kbd>Z</kbd> is B,
+<kbd>[</kbd> <kbd>]</kbd> or the mouse wheel turn the crank, and
+<kbd>Esc</kbd> opens the Playdate menu.
+
 ## Controls
 
 | Input | Explore | Menus / scenes |
