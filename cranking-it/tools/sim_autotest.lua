@@ -172,6 +172,48 @@ local script = coroutine.create(function()
       if ok then say("ok   " .. name) end
     end
   end
+  -- the way a player gets in: buy the machine at its cabinet, open the
+  -- placard, look at records and challenges, play from the menu (no fixed
+  -- seed, iris transition), then each challenge and the daily machine
+  Save.data.gears = 999
+  for i, def in ipairs(Machines.list) do
+    local name = "ui/" .. def.id
+    local ok = guarded(name, function()
+      Scene.go(HubScene, { id = def.id }, "cut")
+      frames(30)
+      tap(pd.kButtonA) frames(40)            -- to the placard
+      if not Machines.isUnlocked(def) then
+        tap(pd.kButtonA) frames(40)          -- remove the dust sheet
+      end
+      local items = LobbyScene.menu and LobbyScene.menu.items or {}
+      for k, it in ipairs(items) do
+        if it.action == "records" or it.action == "challenges" then
+          LobbyScene.menu.index = k
+          tap(pd.kButtonA) frames(20)
+          for _ = 1, 6 do tap(pd.kButtonDown) frames(4) end
+          tap(pd.kButtonB) frames(20)
+        end
+      end
+      if LobbyScene.menu then LobbyScene.menu.index = 1 end
+      tap(pd.kButtonA) frames(60)            -- play the first mode
+      frames(120, 15)
+      fuzz(500, i * 31)
+      frames(90)
+      for _, c in ipairs(def.challenges) do
+        Scene.go(PlayScene, Challenge.challengeParams(def, c), "cut")
+        frames(30)
+        frames(90, 18)
+        fuzz(300, i * 7 + #c.id)
+      end
+    end)
+    if ok then say("ok   " .. name) end
+  end
+  if guarded("ui/daily", function()
+    Scene.go(PlayScene, Challenge.dailyParams(Challenge.daily()), "cut")
+    frames(30)
+    fuzz(400, 99)
+  end) then say("ok   ui/daily") end
+
   if SIM_TESTS then
     local names = {}
     for k in pairs(SIM_TESTS) do names[#names + 1] = k end
