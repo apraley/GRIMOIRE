@@ -72,6 +72,72 @@ local function guarded(name, fn)
   return true
 end
 
+-- a Simulator stand-in for tools/harness.lua, so the scripted per-machine
+-- tests (bundled by CI into SIM_TESTS) can play the real build ------------
+local BTN <const> = { a = pd.kButtonA, b = pd.kButtonB, up = pd.kButtonUp,
+  down = pd.kButtonDown, left = pd.kButtonLeft, right = pd.kButtonRight }
+local H = { shotDir = "", M = {} }
+function H.frame(c) crank = c or 0 coroutine.yield() crank = 0 end
+function H.run(n, c)
+  for _ = 1, n do
+    local v = c
+    if type(c) == "function" then v = c() end
+    H.frame(v or 0)
+  end
+end
+function H.crank(deg, n) H.run(n or 1, deg) end
+function H.hold(nm) cur = cur | BTN[nm] end
+function H.release(nm) cur = cur & ~BTN[nm] end
+function H.releaseAll() cur = 0 end
+function H.press(nm, c) H.hold(nm) H.frame(c) H.release(nm) H.frame(c) end
+function H.holdFor(nm, n, c) H.hold(nm) H.run(n, c) H.release(nm) H.frame(0) end
+function H.shot() H.frame(0) end
+function H.allocProbe(n, c) H.run(n, c) return 0 end
+function H.scene() return Scene.current end
+function H.fuzz(n, seed) fuzz(n, seed or 7) end
+function H.goMachine(id, mode, extra)
+  local p = { id = id, mode = mode or "standard", difficulty = 1, seed = 12345 }
+  if extra then for k, v in pairs(extra) do p[k] = v end end
+  Scene.go(PlayScene, p, "cut")
+  H.frame(0)
+  return PlayScene.machine
+end
+function H.boot(opts)
+  if opts and opts.wipe then
+    pd.datastore.delete("save_a")
+    pd.datastore.delete("save_b")
+    Save.load()
+    Themes.apply()
+  end
+  cur, crank = 0, 0
+  Scene.go(TitleScene, {}, "cut")
+  H.frame(0)
+end
+local simTestFails = 0
+local function runSimTest(name, fn)
+  local realPrint, realDofile, realOs = print, dofile, os
+  print = function(...)
+    local t = {}
+    for i = 1, select("#", ...) do t[i] = tostring((select(i, ...))) end
+    local line = table.concat(t, " ")
+    if line:sub(1, 4) == "FAIL" then
+      simTestFails = simTestFails + 1
+      say(name .. ": " .. line)
+    end
+    realPrint(line)
+  end
+  dofile = function() return H end
+  os = setmetatable({
+    exit = function(code) error("__exit " .. tostring(code), 0) end,
+    getenv = function() return nil end,
+    clock = function() return pd.getCurrentTimeMilliseconds() / 1000 end,
+  }, { __index = realOs })
+  local ok, err = pcall(fn)
+  print, dofile, os = realPrint, realDofile, realOs
+  cur, crank = 0, 0
+  if not ok and not tostring(err):find("^__exit") then error(err, 0) end
+end
+
 local script = coroutine.create(function()
   guarded("title", function()
     frames(20)
@@ -106,6 +172,16 @@ local script = coroutine.create(function()
       if ok then say("ok   " .. name) end
     end
   end
+  if SIM_TESTS then
+    local names = {}
+    for k in pairs(SIM_TESTS) do names[#names + 1] = k end
+    table.sort(names)
+    for _, k in ipairs(names) do
+      local name = "script/" .. k
+      if guarded(name, function() runSimTest(k, SIM_TESTS[k]) end) then say("ok   " .. name) end
+    end
+    say(string.format("scripted checks that failed (gameplay, not crashes): %d", simTestFails))
+  end
   step = "done"
 end)
 
@@ -126,7 +202,7 @@ say("start: " .. #Machines.list .. " machines")
 
 function pd.update()
   if finished then return end
-  for _ = 1, 4 do
+  for _ = 1, 12 do
     local okS, errS = coroutine.resume(script)
     if not okS then
       errors = errors + 1

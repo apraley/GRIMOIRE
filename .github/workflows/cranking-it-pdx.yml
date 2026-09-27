@@ -55,10 +55,11 @@ jobs:
           git push
 
   # Plays every machine and mode in Panic's Linux Simulator under a virtual
-  # display, driven by tools/sim_autotest.lua, and fails on any Lua error.
+  # display, driven by tools/sim_autotest.lua (random input, then the scripted
+  # playthroughs from tools/test_*.lua), and fails on any Lua error.
   simulator:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
 
@@ -79,7 +80,8 @@ jobs:
         run: |
           cp -r source autotest-src
           cp tools/sim_autotest.lua autotest-src/sim_autotest.lua
-          printf '\nimport "sim_autotest"\n' >> autotest-src/main.lua
+          python3 tools/bundle_sim_tests.py > autotest-src/sim_tests.lua
+          printf '\nimport "sim_tests"\nimport "sim_autotest"\n' >> autotest-src/main.lua
           pdc autotest-src Autotest.pdx
 
       - name: Run it in the Simulator
@@ -87,7 +89,7 @@ jobs:
         run: |
           set +e
           export SDL_AUDIODRIVER=dummy
-          timeout 600 xvfb-run -a "$PLAYDATE_SDK_PATH/bin/PlaydateSimulator" "$PWD/Autotest.pdx" > sim.log 2>&1
+          timeout 2400 xvfb-run -a "$PLAYDATE_SDK_PATH/bin/PlaydateSimulator" "$PWD/Autotest.pdx" > sim.log 2>&1
           echo "simulator exit code $?"
           grep -E "AUTOTEST|error|Error" sim.log | head -200
           echo "---- tail of simulator output"
