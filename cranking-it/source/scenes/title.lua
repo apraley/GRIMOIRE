@@ -216,4 +216,13 @@ function TitleScene:draw()
   gfx.drawRect(372, 60, 12, 120)
   gfx.fillRect(374, 178 - math.floor(116 * self.open), 8, math.floor(116 * self.open))
   Art.crankGlyph(378, 196, 8, (self.t * 200) % 360)
+  -- which build is installed (sideloads are easy to mix up)
+  if not self.buildLabel then
+    local md = playdate.metadata
+    self.buildLabel = "v" .. tostring(md and md.version or "?") .. " build " .. tostring(md and md.buildNumber or "?")
+  end
+  local bw = gfx.getTextSize(self.buildLabel)
+  gfx.setColor(gfx.kColorWhite)
+  gfx.fillRect(2, 222, bw + 6, 16)
+  UI.text(self.buildLabel, 5, 222)
 end

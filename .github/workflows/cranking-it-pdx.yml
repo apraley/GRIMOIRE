@@ -28,6 +28,8 @@ jobs:
         working-directory: cranking-it
         run: |
           pdc --version || true
+          # a new build number every run, so the Playdate sees each sideload as an update
+          sed -i "s/^buildNumber=.*/buildNumber=${{ github.run_number }}/" source/pdxinfo
           pdc source CrankingIt.pdx
           ls -la CrankingIt.pdx
 
