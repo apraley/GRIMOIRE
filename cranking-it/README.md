@@ -57,6 +57,11 @@ pdc source CrankingIt.pdx
 # then open CrankingIt.pdx in the Playdate Simulator or sideload it
 ```
 
+Every push that touches `source/` also builds the game on GitHub Actions
+(`.github/workflows/cranking-it-pdx.yml`): the workflow installs the latest
+Linux SDK, runs `pdc`, and uploads `CrankingIt.pdx.zip` as a run artifact
+ready to sideload.
+
 There are no image, font or sound assets: all art is drawn procedurally with
 the SDK's drawing API (with static art cached into images at first use), and
 all sound is synthesized with `playdate.sound.synth`.
