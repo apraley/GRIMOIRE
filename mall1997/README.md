@@ -66,6 +66,17 @@ It produces two outputs:
 - `web/dist/mall1997-offline.html` is one self-contained file. Open it
   straight from disk.
 - `web/dist/index.html` + `glue.wasm` is for hosting.
+- `web/dist/mall1997-netlify.zip` holds the hosted version plus a
+  `_headers` file. Drag it onto <https://app.netlify.com/drop> to publish.
+
+The page has a **Tester notes** panel for playtesters:
+- a quick note box (<kbd>N</kbd> jumps to it) that stamps each note with the
+  in-game time, place and money;
+- a checklist of every place and system, each marked OK or Issue, with notes;
+- automatic capture of any Lua error;
+- a report to copy or download, with a snapshot of the current game.
+
+Notes are kept in that browser's `localStorage`.
 
 Keys: arrows walk, <kbd>X</kbd>/<kbd>Enter</kbd> is A, <kbd>Z</kbd> is B,
 <kbd>[</kbd> <kbd>]</kbd> or the mouse wheel turn the crank, and

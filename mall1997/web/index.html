@@ -148,6 +148,40 @@ ol.try b { font-family: var(--mono); font-size: 12px; font-weight: 700; }
 .note { font-size: 13px; color: var(--muted); }
 .stat { font-family: var(--mono); font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
 .stat.warn { color: var(--danger); }
+/* ---------- tester notes ---------- */
+.notes-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.notes-head .stat { color: var(--muted); }
+.quick { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 10px; }
+.field { font: 14px var(--sans); color: var(--ink); background: var(--key); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; box-sizing: border-box; min-width: 0; }
+.field:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+textarea.field { resize: vertical; min-height: 64px; margin-top: 8px; }
+.log { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; max-height: 260px; overflow: auto; }
+.log li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--key); font-size: 14px; }
+.log li.crash { border-color: var(--danger); }
+.log .meta { font-family: var(--mono); font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.log .meta button { all: unset; cursor: pointer; color: var(--muted); padding: 0 4px; }
+.log .meta button:hover, .log .meta button:focus-visible { color: var(--danger); }
+.log .txt { margin-top: 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.log li.crash .txt { font-family: var(--mono); font-size: 12px; }
+.checks { display: grid; gap: 14px; margin-top: 12px; }
+.checks h3 { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.item { border-top: 1px solid var(--line); }
+.item summary { display: flex; align-items: center; gap: 8px; padding: 7px 2px; cursor: pointer; list-style: none; font-size: 14px; }
+.item summary::-webkit-details-marker { display: none; }
+.item summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+.item .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--muted); box-sizing: border-box; }
+.item[data-s="ok"] .dot { background: var(--accent); border-color: var(--accent); }
+.item[data-s="issue"] .dot { background: var(--danger); border-color: var(--danger); }
+.item .lbl { flex: 1; }
+.item .has { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.item .body { padding: 0 2px 10px 18px; }
+.item .hint { font-size: 13px; color: var(--muted); margin: 0; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-top: 8px; }
+.seg button { font: 700 11px var(--mono); padding: 6px 10px; border: 0; background: var(--key); color: var(--muted); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.toast { font-family: var(--mono); font-size: 12px; color: var(--accent); min-height: 1.5em; margin-top: 6px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -237,6 +271,36 @@ ol.try b { font-family: var(--mono); font-size: 12px; font-weight: 700; }
       </div>
       <p class="note" style="margin-top:10px">Saved in this browser only. The game also saves when you sleep at the end of a day and when you leave this page.</p>
     </section>
+
+    <section class="sec" id="notesSec" aria-labelledby="notesTitle">
+      <div class="notes-head">
+        <h2 id="notesTitle">Tester notes</h2>
+        <span class="stat" id="notesCount"></span>
+      </div>
+      <p class="note">Jot things down as you play. Each note is stamped with the in-game time and place. Press <kbd>N</kbd> to jump here. Notes stay in this browser until you clear them.</p>
+      <form class="quick" id="quickForm" autocomplete="off">
+        <input class="field" id="quickNote" type="text" placeholder="What just happened?" maxlength="600" aria-label="New note">
+        <button class="btn" type="submit">Add note</button>
+      </form>
+      <ol class="log" id="noteLog" aria-label="Notes, newest first"></ol>
+      <div class="row">
+        <button class="btn" id="copyReport" type="button">Copy report</button>
+        <button class="btn" id="downloadReport" type="button">Download .txt</button>
+        <button class="btn danger" id="clearNotes" type="button">Clear notes</button>
+      </div>
+      <div class="row" id="clearConfirm" hidden>
+        <span class="note">Delete every note and checklist mark?</span>
+        <button class="btn danger" id="clearYes" type="button">Delete</button>
+        <button class="btn" id="clearNo" type="button">Keep</button>
+      </div>
+      <div class="toast" id="notesToast" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="sec" aria-labelledby="checkTitle">
+      <h2 id="checkTitle">Things to check</h2>
+      <p class="note">Open one, mark it OK or Issue, and write what you saw. These go in the report too.</p>
+      <div class="checks" id="checks"></div>
+    </section>
   </aside>
 </div>
 
@@ -311,17 +375,20 @@ ol.try b { font-family: var(--mono); font-size: 12px; font-weight: 700; }
   function crank(d) { crankAcc += d; crankAngle = (crankAngle + d + 360) % 360; $("arm").style.transform = "rotate(" + crankAngle + "deg)"; $("crank").setAttribute("aria-valuenow", String(Math.round(crankAngle))); }
   const KEYS = { ArrowLeft: B.left, ArrowRight: B.right, ArrowUp: B.up, ArrowDown: B.down,
     x: B.a, X: B.a, k: B.a, K: B.a, Enter: B.a, z: B.b, Z: B.b, j: B.b, J: B.b };
+  const typing = (el) => !!(el && el.closest && el.closest("input, textarea, select, [contenteditable]"));
   window.addEventListener("keydown", (e) => {
+    if (typing(e.target)) return;
     if (e.target && e.target.closest && e.target.closest(".menu-list")) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (menuOpen) { menuKey(e); return; }
+    if (e.key === "n" || e.key === "N") { e.preventDefault(); held = 0; $("quickNote").focus(); return; }
     if (e.key === "Escape" || e.key === "m" || e.key === "M") { e.preventDefault(); openMenu(); return; }
     if (e.key === "[") { e.preventDefault(); crank(-15); return; }
     if (e.key === "]") { e.preventDefault(); crank(15); return; }
     const bit = KEYS[e.key];
     if (bit && !(e.target && e.target.tagName === "BUTTON" && e.key === "Enter")) { e.preventDefault(); if (!e.repeat) press(bit); }
   });
-  window.addEventListener("keyup", (e) => { const bit = KEYS[e.key]; if (bit) release(bit); });
+  window.addEventListener("keyup", (e) => { if (typing(e.target)) return; const bit = KEYS[e.key]; if (bit) release(bit); });
   window.addEventListener("blur", () => { held = 0; });
   document.querySelectorAll("[data-btn]").forEach((el) => {
     const bit = Number(el.dataset.btn);
@@ -380,7 +447,15 @@ ol.try b { font-family: var(--mono); font-size: 12px; font-weight: 700; }
 
   // ---------- Lua ----------
   let L = null, timer = null, engine = null;
-  function showErr(msg) { $("err").hidden = !msg; $("errText").textContent = msg || ""; }
+  let lastErr = "";
+  function showErr(msg) {
+    $("err").hidden = !msg; $("errText").textContent = msg || "";
+    if (msg) { lastErr = msg; Notes.crash(msg); }
+  }
+  function gameInfo(kind) {
+    if (!L || !L.debug) return kind === "short" ? "game not running" : "(game not running)";
+    try { const s = L.debug(kind); return typeof s === "string" ? s : "(no info)"; } catch (e) { return "(debug info failed: " + e + ")"; }
+  }
 
   async function start() {
     showErr("");
@@ -405,6 +480,7 @@ ol.try b { font-family: var(--mono); font-size: 12px; font-weight: 700; }
       menuItems: lua.global.get("WebMenuItems"),
       menuSelect: lua.global.get("WebMenuSelect"),
       suspend: lua.global.get("WebSuspend"),
+      debug: lua.global.get("WebDebugInfo"),
     };
     $("boot").textContent = "Opening the mall\u2026";
     const r = lua.global.get("WebBoot")();
@@ -452,6 +528,198 @@ ol.try b { font-family: var(--mono); font-size: 12px; font-weight: 700; }
     lastSave = null; saveFailed = false; renderSave();
     await restart();
   });
+
+  // ---------- tester notes ----------
+  const CHECKS = [
+    ["Getting started", [
+      ["title", "Title screen & new game", "Starting a new mall, naming, the loading screen."],
+      ["intro", "Intro story", "Does the new-kid intro read well? Are the five rivals named?"],
+      ["lot", "Parking lot & the bus", "Arriving, walking to the doors, going home at night."],
+    ]],
+    ["Places", [
+      ["c1", "Lower concourse & Center Court", "Storefronts, the fountain, crowds, walking speed."],
+      ["c2", "Upper level & escalators", "Getting up and down, doors lining up."],
+      ["fc", "Food court", "Ordering food, hunger going down, seating."],
+      ["arcade", "Arcade", "Cabinets, tokens, high scores, head-to-head challenges."],
+      ["cinema", "Cinema", "Buying a ticket, watching, time skipping."],
+      ["stores", "Stores & racks", "Entering stores, crank-browsing racks, buying."],
+      ["pawn", "Pawn shop", "Selling things, prices, buying things back."],
+      ["secret", "Service halls & secret places", "Staff doors, tunnels, the roof, the locked room."],
+    ]],
+    ["People", [
+      ["walk", "People walking", "Do they face the way they walk? Do they get stuck or pop around?"],
+      ["talk", "Talking & dialog", "Menu options, replies that make sense, typos."],
+      ["gossip", "Rumors, gossip & secrets", "Hearing rumors, telling them, people reacting."],
+      ["friends", "Friends, hanging out & dating", "Inviting people along, asking out, breakups."],
+      ["pager", "Pager & your cousin", "Messages arriving, crank ticker, taunts from rivals."],
+    ]],
+    ["Taking over the mall", [
+      ["turfpage", "TURF page & respect", "Does respect go up when it should? Is the next goal clear?"],
+      ["crowns", "Rivals & their crews", "Crowns over rivals, crews hanging around, finding them."],
+      ["faceoff", "Calling someone out", "Face-off rounds, Roast / Flex / Crew, win and lose results."],
+      ["retake", "Holding your turf", "Rivals taking turf back, taunts, disses."],
+    ]],
+    ["Money & trouble", [
+      ["buy", "Buying & money", "Prices, allowance, running out of cash."],
+      ["steal", "Shoplifting & security", "Hiding things, getting caught, bans, being chased."],
+      ["jobs", "Jobs & shift minigames", "Interviews, shifts, pay, promotions."],
+      ["home", "Curfew, Mom & grounding", "Pages from Mom, getting fetched, grounded days."],
+    ]],
+    ["Everything else", [
+      ["days", "End of day, sleep & morning", "Night summary, next morning, weekends."],
+      ["save", "Saving & loading", "Save, reload the page, Continue. Anything lost?"],
+      ["menus", "Life menu (B)", "Every tab: ME, TURF, BAG, PAGER, PEOPLE, RUMORS, NEWS, MALL, LORE."],
+      ["crank", "Crank controls", "Dial, [ and ], mouse wheel."],
+      ["perf", "Speed & slowdowns", "Stutters, long pauses, when it happened."],
+      ["text", "Text, typos & layout", "Words cut off, overlapping boxes, spelling."],
+      ["fun", "Is it fun?", "What made you want to keep playing, or stop."],
+    ]],
+  ];
+  const Notes = {
+    list: [], checks: {},
+    load() {
+      try { this.list = JSON.parse(store.get("notes") || "[]"); } catch (e) { this.list = []; }
+      try { this.checks = JSON.parse(store.get("checks") || "{}"); } catch (e) { this.checks = {}; }
+    },
+    save() { store.set("notes", JSON.stringify(this.list)); store.set("checks", JSON.stringify(this.checks)); },
+    add(text, kind) {
+      this.list.push({ t: new Date().toISOString(), where: gameInfo("short"), text, kind: kind || "note" });
+      this.save(); renderNotes();
+    },
+    crash(msg) {
+      const last = this.list[this.list.length - 1];
+      if (last && last.kind === "crash" && last.text === msg) return;
+      this.add(msg, "crash");
+    },
+  };
+  function fmtTime(iso) { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
+  function renderNotes() {
+    const log = $("noteLog");
+    log.textContent = "";
+    for (let i = Notes.list.length - 1; i >= 0; i--) {
+      const n = Notes.list[i];
+      const li = document.createElement("li");
+      if (n.kind === "crash") li.className = "crash";
+      const meta = document.createElement("div"); meta.className = "meta";
+      const where = document.createElement("span");
+      where.textContent = (n.kind === "crash" ? "CRASH \u00b7 " : "") + n.where;
+      const del = document.createElement("button");
+      del.type = "button"; del.textContent = "\u00d7"; del.setAttribute("aria-label", "Delete this note");
+      del.addEventListener("click", () => { Notes.list.splice(i, 1); Notes.save(); renderNotes(); });
+      meta.append(where, del);
+      const txt = document.createElement("div"); txt.className = "txt"; txt.textContent = n.text;
+      li.append(meta, txt);
+      log.appendChild(li);
+    }
+    const issues = Object.values(Notes.checks).filter((c) => c.s === "issue").length;
+    const oks = Object.values(Notes.checks).filter((c) => c.s === "ok").length;
+    $("notesCount").textContent = Notes.list.length + " notes \u00b7 " + oks + " OK \u00b7 " + issues + " issues";
+  }
+  function renderChecks() {
+    const root = $("checks");
+    root.textContent = "";
+    for (const [group, items] of CHECKS) {
+      const box = document.createElement("div");
+      const h = document.createElement("h3"); h.textContent = group; box.appendChild(h);
+      for (const [id, label, hint] of items) {
+        const st = Notes.checks[id] || {};
+        const d = document.createElement("details"); d.className = "item"; d.dataset.s = st.s || "";
+        const sum = document.createElement("summary");
+        const dot = document.createElement("span"); dot.className = "dot"; dot.setAttribute("aria-hidden", "true");
+        const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = label;
+        const has = document.createElement("span"); has.className = "has";
+        const setHas = () => { const c = Notes.checks[id] || {}; has.textContent = (c.s === "ok" ? "OK" : c.s === "issue" ? "ISSUE" : "") + (c.n ? " \u270e" : ""); };
+        setHas();
+        sum.append(dot, lbl, has);
+        const body = document.createElement("div"); body.className = "body";
+        const p = document.createElement("p"); p.className = "hint"; p.textContent = hint;
+        const seg = document.createElement("div"); seg.className = "seg"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", label + " status");
+        const opts = [["", "Not tried"], ["ok", "OK"], ["issue", "Issue"]];
+        const btns = opts.map(([v, t]) => {
+          const b = document.createElement("button"); b.type = "button"; b.textContent = t;
+          b.setAttribute("aria-pressed", String((st.s || "") === v));
+          b.addEventListener("click", () => {
+            const c = Notes.checks[id] || (Notes.checks[id] = {});
+            c.s = v; if (v) c.where = gameInfo("short");
+            d.dataset.s = v; btns.forEach((x, k) => x.setAttribute("aria-pressed", String(opts[k][0] === v)));
+            Notes.save(); setHas(); renderNotes();
+          });
+          return b;
+        });
+        seg.append(...btns);
+        const ta = document.createElement("textarea"); ta.className = "field"; ta.rows = 3;
+        ta.placeholder = "What did you see? What did you expect?"; ta.value = st.n || "";
+        ta.setAttribute("aria-label", label + " notes");
+        ta.addEventListener("input", () => { const c = Notes.checks[id] || (Notes.checks[id] = {}); c.n = ta.value; Notes.save(); setHas(); });
+        body.append(p, seg, ta);
+        d.append(sum, body);
+        box.appendChild(d);
+      }
+      root.appendChild(box);
+    }
+  }
+  function report() {
+    const out = [];
+    out.push("THE MALL, 1997 \u2014 tester report");
+    out.push("written " + new Date().toLocaleString() + " \u00b7 " + navigator.userAgent);
+    out.push("");
+    out.push("== CURRENT GAME ==");
+    out.push(gameInfo());
+    if (lastErr) { out.push(""); out.push("== LAST ERROR =="); out.push(lastErr); }
+    out.push(""); out.push("== CHECKLIST ==");
+    for (const [group, items] of CHECKS) {
+      const lines = [];
+      for (const [id, label] of items) {
+        const c = Notes.checks[id];
+        if (!c || (!c.s && !c.n)) continue;
+        lines.push("[" + (c.s === "ok" ? "OK" : c.s === "issue" ? "ISSUE" : " ") + "] " + label + (c.where ? "  (" + c.where + ")" : ""));
+        if (c.n) lines.push("    " + c.n.replace(/\n/g, "\n    "));
+      }
+      if (lines.length) { out.push(group + ":"); out.push(...lines); }
+    }
+    out.push(""); out.push("== NOTES (oldest first) ==");
+    if (!Notes.list.length) out.push("(none)");
+    for (const n of Notes.list) {
+      out.push("- " + fmtTime(n.t) + " \u00b7 " + (n.kind === "crash" ? "CRASH \u00b7 " : "") + n.where);
+      out.push("  " + n.text.replace(/\n/g, "\n  "));
+    }
+    return out.join("\n");
+  }
+  function toast(msg) { $("notesToast").textContent = msg; clearTimeout(toast.t); toast.t = setTimeout(() => { $("notesToast").textContent = ""; }, 3000); }
+  $("quickForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = $("quickNote").value.trim();
+    if (!v) return;
+    Notes.add(v);
+    $("quickNote").value = "";
+    toast("Noted at " + (Notes.list[Notes.list.length - 1].where));
+  });
+  $("quickNote").addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); $("lcd").focus({ preventScroll: true }); } });
+  $("copyReport").addEventListener("click", async () => {
+    const text = report();
+    try { await navigator.clipboard.writeText(text); toast("Report copied. Paste it into a message."); }
+    catch (e) {
+      const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+      let ok = false; try { ok = document.execCommand("copy"); } catch (_) {}
+      ta.remove(); toast(ok ? "Report copied." : "Couldn't copy. Use Download instead.");
+    }
+  });
+  $("downloadReport").addEventListener("click", () => {
+    const blob = new Blob([report()], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "mall1997-report-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + ".txt";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast("Report downloaded.");
+  });
+  $("clearNotes").addEventListener("click", () => { $("clearConfirm").hidden = false; });
+  $("clearNo").addEventListener("click", () => { $("clearConfirm").hidden = true; });
+  $("clearYes").addEventListener("click", () => {
+    $("clearConfirm").hidden = true;
+    Notes.list = []; Notes.checks = {}; Notes.save(); renderNotes(); renderChecks(); toast("Notes cleared.");
+  });
+  Notes.load(); renderNotes(); renderChecks();
 
   renderSave(); renderSound();
   start().catch((e) => { $("boot").textContent = "Couldn't start Lua."; showErr(String(e && e.stack || e)); });

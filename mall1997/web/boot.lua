@@ -142,6 +142,51 @@ function WebMenuSelect(i)
   if m and m.cb then run(m.cb) end
 end
 
+-- where the player is right now, for tester notes and bug reports.
+-- WebDebugInfo("short") is one line: "SAT AUG 30 4:12PM · Food Court · $18.50";
+-- with no argument it is a fuller multi-line snapshot.
+local function sceneLine()
+  local top = Scene and Scene.top and Scene.top()
+  if not top then return "no scene" end
+  if Explore and top == Explore.scene then return "walking around" end
+  if top.pages and top.pages[top.page] then return "dialog: " .. (top.pages[top.page][1] or "") end
+  if top.items then
+    local t = top.title or (top.opts and top.opts.prompt) or ""
+    return "choosing: " .. t
+  end
+  if top.tab and top.rows then return "life menu" end
+  return "other screen"
+end
+
+function WebDebugInfo(kind)
+  local ok, out = pcall(function()
+    if not W or not W.p then return kind == "short" and "title screen" or "title screen (no mall loaded yet)" end
+    local p = W.p
+    local where = p.atMall and Areas.name(p.area) or "not at the mall"
+    if kind == "short" then
+      return Clock.stamp(W.t) .. " \u{b7} " .. where .. " \u{b7} " .. U.money(p.money)
+    end
+    local lines = {
+      "mall: " .. W.mall.name .. " (seed " .. tostring(W.seed) .. ")",
+      "game time: " .. Clock.stamp(W.t) .. " (day " .. Clock.day(W.t) .. ")",
+      "where: " .. where .. (p.atMall and (" [" .. p.area .. " x" .. math.floor(p.x) .. " y" .. math.floor(p.y) .. "]") or ""),
+      "player: " .. p.name .. ", " .. U.money(p.money) .. ", " .. (p.tokens or 0) .. " tokens",
+      "screen: " .. sceneLine(),
+    }
+    if Turf and W.turf then
+      local label, v = Turf.standing()
+      lines[#lines + 1] = "standing: " .. label .. " (" .. v .. "), turf held " .. Turf.held() .. "/" .. #Turf.ZONES
+      local key = Turf.zoneOf(p.area)
+      local z = key and Turf.zone(key)
+      if z then lines[#lines + 1] = "turf here: " .. Turf.BY[key].short .. " owner " .. z.owner .. " respect " .. z.resp .. "/" .. Turf.BY[key].need end
+    end
+    if p.job then lines[#lines + 1] = "job: " .. Jobs.title() .. " at " .. Jobs.placeName() end
+    return table.concat(lines, "\n")
+  end)
+  if ok then return out end
+  return "(debug info unavailable: " .. tostring(out) .. ")"
+end
+
 -- the page is being hidden or closed: save like the device would on sleep
 function WebSuspend()
   if playdate.gameWillTerminate then run(playdate.gameWillTerminate) end
